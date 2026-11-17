@@ -2,6 +2,9 @@ name: Import Paofu 0.7.0 source
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/import-source-070.yml'
 
 permissions:
   contents: write
