@@ -157,7 +157,7 @@ impl State {
             ctx.load_texture("update-logo", egui::ColorImage::from_rgba_unmultiplied([icon.width as usize,icon.height as usize],&icon.rgba),egui::TextureOptions::LINEAR)
         }).id();
         let installing = self.rx.is_some() && self.cancel.is_none();
-        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("daozai-update"),
+        ctx.show_viewport_immediate(egui::ViewportId::from_hash_of("paofu-update"),
             egui::ViewportBuilder::default().with_title("泡浮更新").with_icon(theme::app_icon())
                 .with_inner_size([520.0, 416.0]).with_resizable(false).with_decorations(false)
                 .with_transparent(true).with_active(true), |ctx, _| {
@@ -202,7 +202,7 @@ impl State {
                             ui.vertical(|ui| {
                                 ui.label(egui::RichText::new("泡浮有新版本了").font(theme::font(21.0,W::Semibold)));
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(option_env!("DAOZAI_BUILD_LABEL").unwrap_or(env!("CARGO_PKG_VERSION"))).color(theme::DIM));
+                                    ui.label(egui::RichText::new(option_env!("PAOFU_BUILD_LABEL").unwrap_or(env!("CARGO_PKG_VERSION"))).color(theme::DIM));
                                     ui.label(egui::RichText::new("→").color(theme::DIM));
                                     egui::Frame::new().fill(theme::alpha_blue(0.12)).corner_radius(6.0)
                                         .inner_margin(egui::Margin::symmetric(8,3)).show(ui, |ui| {
@@ -286,7 +286,7 @@ fn own_files_kb(dir: &std::path::Path) -> u32 {
 #[cfg(windows)]
 pub fn record_install_size() {
     use windows::{core::w, Win32::System::Registry::{RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_DWORD, RRF_RT_REG_SZ}};
-    let key = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Daozai");
+    let key = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Paofu");
     let Some(dir) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(PathBuf::from)) else { return };
     let mut buffer = [0u16; 1024];
     let mut size = (buffer.len() * 2) as u32;
@@ -349,7 +349,7 @@ fn http_agent() -> Result<ureq::Agent, String> {
 
 fn check() -> Result<Option<Release>, String> {
     let response = http_agent()?
-        .get(API).set("User-Agent", concat!("Daozai/", env!("CARGO_PKG_VERSION")))
+        .get(API).set("User-Agent", concat!("Paofu/", env!("CARGO_PKG_VERSION")))
         .set("Accept", "application/vnd.github+json").call().map_err(|error| match error {
             ureq::Error::Status(403 | 429, _) => "检查过于频繁，请稍后重试".to_owned(),
             ureq::Error::Status(404, _) => "暂未找到正式版本，请查看发布页".to_owned(),
@@ -362,7 +362,7 @@ fn check() -> Result<Option<Release>, String> {
 
 fn release_info(value: &serde_json::Value, current: &str) -> Result<Option<Release>, String> {
     let Some(tag) = parse_release(value, current)? else { return Ok(None); };
-    let name = format!("Daozai-v{}-windows-x64.zip", tag.trim_start_matches('v'));
+    let name = format!("Paofu-v{}-windows-x64.zip", tag.trim_start_matches('v'));
     let expected = format!("{REPOSITORY}/releases/download/{tag}/{name}");
     let package = value["assets"].as_array().and_then(|assets| assets.iter().find(|asset| asset["name"] == name))
         .and_then(|asset| {
@@ -378,7 +378,7 @@ fn release_info(value: &serde_json::Value, current: &str) -> Result<Option<Relea
 
 fn download(release: &Release, tx: &mpsc::Sender<Event>, cancel: &AtomicBool) -> Result<PathBuf, String> {
     let package = release.package.as_ref().ok_or("请通过浏览器下载此版本")?;
-    let root = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).ok_or("无法找到更新缓存目录")?.join("Daozai/Updates");
+    let root = std::env::var_os("LOCALAPPDATA").map(PathBuf::from).ok_or("无法找到更新缓存目录")?.join("Paofu/Updates");
     let work = root.join(format!("{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos()));
     std::fs::create_dir_all(&work).map_err(|_| "无法创建更新缓存")?;
     let result = (|| {
@@ -461,8 +461,8 @@ fn parse_release(value: &serde_json::Value, current: &str) -> Result<Option<Stri
 #[cfg(test)]
 mod install_size_tests {
     #[test]
-    fn install_size_counts_only_daozai_files() {
-        let dir = std::env::temp_dir().join(format!("daozai-size-{}", std::process::id()));
+    fn install_size_counts_only_paofu_files() {
+        let dir = std::env::temp_dir().join(format!("paofu-size-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("Other App")).unwrap();
         std::fs::write(dir.join("泡浮.exe"), vec![0u8; 3000]).unwrap();
         std::fs::write(dir.join("LICENSE"), vec![0u8; 100]).unwrap();
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn automatic_notice_is_once_per_version_and_manual_check_can_reopen_it() {
-        let path=std::env::temp_dir().join(format!("daozai-update-check-{}.json",std::process::id()));
+        let path=std::env::temp_dir().join(format!("paofu-update-check-{}.json",std::process::id()));
         let _=std::fs::remove_file(&path);
         for (automatic, version, expected) in [(true, "v0.6.65", true), (true, "v0.6.65", false),
             (true, "v0.6.66", true), (false, "v0.6.66", true)] {
@@ -616,8 +616,8 @@ mod tests {
     fn only_matching_verified_windows_package_can_install() {
         let mut value = release("v0.6.40");
         value["body"] = "更新说明".into();
-        value["assets"] = serde_json::json!([{"name":"Daozai-v0.6.40-windows-x64.zip",
-            "browser_download_url":format!("{REPOSITORY}/releases/download/v0.6.40/Daozai-v0.6.40-windows-x64.zip"),
+        value["assets"] = serde_json::json!([{"name":"Paofu-v0.6.40-windows-x64.zip",
+            "browser_download_url":format!("{REPOSITORY}/releases/download/v0.6.40/Paofu-v0.6.40-windows-x64.zip"),
             "size":123,"digest":format!("sha256:{}", "a".repeat(64))}]);
         let parsed = release_info(&value, "0.6.39").unwrap().unwrap();
         assert!(parsed.package.is_some()); assert_eq!(parsed.notes, "更新说明");
@@ -673,7 +673,7 @@ mod tests {
         let mut state = State::default();
         let (tx, rx) = mpsc::channel(); state.rx = Some(rx);
         state.cancel = Some(Arc::new(AtomicBool::new(true)));
-        let work = std::env::temp_dir().join(format!("daozai-cancel-test-{}", std::process::id()));
+        let work = std::env::temp_dir().join(format!("paofu-cancel-test-{}", std::process::id()));
         std::fs::create_dir_all(&work).unwrap();
         tx.send(Event::Ready(work.clone())).unwrap();
         state.poll(&egui::Context::default());
@@ -709,10 +709,10 @@ mod tests {
     #[test]
     #[ignore = "按需导出发现新版时的设置界面，使用独立数据目录"]
     fn available_update_preview() {
-        let dest = std::path::PathBuf::from(std::env::var_os("DAOZAI_UPDATE_PREVIEW_DIR").expect("需指定预览目录"));
+        let dest = std::path::PathBuf::from(std::env::var_os("PAOFU_UPDATE_PREVIEW_DIR").expect("需指定预览目录"));
         std::fs::create_dir_all(&dest).unwrap();
-        let old = std::env::var_os("DAOZAI_DATA_DIR");
-        std::env::set_var("DAOZAI_DATA_DIR", dest.join("data"));
+        let old = std::env::var_os("PAOFU_DATA_DIR");
+        std::env::set_var("PAOFU_DATA_DIR", dest.join("data"));
         let ctx = egui::Context::default();
         let mut app = crate::app::App::new(&ctx, Default::default());
         app.updates.result = Some(Ok(Some(Release { version: "v0.6.63".into(),
@@ -726,7 +726,7 @@ mod tests {
         let capture = output.clone();
         egui::Context::set_immediate_viewport_renderer(move |ctx, mut viewport| {
             let id = viewport.ids.this;
-            assert_eq!(id, egui::ViewportId::from_hash_of("daozai-update"));
+            assert_eq!(id, egui::ViewportId::from_hash_of("paofu-update"));
             let raw = egui::RawInput {
                 viewport_id: id,
                 viewports: std::iter::once((id, egui::ViewportInfo { native_pixels_per_point: Some(1.0), ..Default::default() })).collect(),
@@ -761,8 +761,8 @@ mod tests {
             raster.free_textures(&child.textures_delta);
         }
         }
-        if let Some(old) = old { std::env::set_var("DAOZAI_DATA_DIR", old); }
-        else { std::env::remove_var("DAOZAI_DATA_DIR"); }
+        if let Some(old) = old { std::env::set_var("PAOFU_DATA_DIR", old); }
+        else { std::env::remove_var("PAOFU_DATA_DIR"); }
     }
 }
 

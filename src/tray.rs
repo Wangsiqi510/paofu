@@ -48,8 +48,8 @@ const CMD_SETTINGS:u32=6;
 const TIMER_MENU: usize = 12;
 
 const RUN_KEY: PCWSTR = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-const RUN_VALUE: PCWSTR = w!("Daozai");
-const MUTEX_NAME: PCWSTR = w!("Local\\Daozai.SingleInstance");
+const RUN_VALUE: PCWSTR = w!("Paofu");
+const MUTEX_NAME: PCWSTR = w!("Local\\Paofu.SingleInstance");
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct State {
@@ -111,7 +111,7 @@ fn load_resource_icon() -> Option<HICON> {
 
 /// 图标取不到时，直接解析内嵌的泡浮 ICO。
 fn load_embedded_icon() -> Option<HICON> {
-    let ico: &[u8] = include_bytes!("../assets/daozai.ico");
+    let ico: &[u8] = include_bytes!("../assets/paofu.ico");
     if ico.len() < 6 {
         return None;
     }
@@ -238,7 +238,7 @@ fn about() {
 }
 
 fn dump_menu(hwnd: HWND, ctx: &Ctx, menu: HMENU) {
-    if let Ok(path) = std::env::var("DAOZAI_TRAY_DUMP") {
+    if let Ok(path) = std::env::var("PAOFU_TRAY_DUMP") {
         let state = ctx.state();
         let mut body = String::new();
         body.push_str(&format!("hwnd=0x{:X}\n", hwnd.0 as usize));
@@ -380,14 +380,14 @@ impl Tray {
         let (ready_tx, ready_rx) = channel();
         let thread_state = shared.clone();
         let thread = std::thread::Builder::new()
-            .name("daozai-tray".into())
+            .name("paofu-tray".into())
             .spawn(move || unsafe {
                 let Ok(module) = GetModuleHandleW(None) else {
                     let _ = ready_tx.send(Err("GetModuleHandleW 失败".to_string()));
                     return;
                 };
                 let hinst = HINSTANCE(module.0);
-                let class = w!("DaozaiTray");
+                let class = w!("PaofuTray");
                 let wc = WNDCLASSW {
                     style: WNDCLASS_STYLES(0),
                     lpfnWndProc: Some(wndproc),
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn embedded_icon_still_parsable_as_fallback() {
-        let ico: &[u8] = include_bytes!("../assets/daozai.ico");
+        let ico: &[u8] = include_bytes!("../assets/paofu.ico");
         assert_eq!(&ico[..4], &[0, 0, 1, 0]);
         assert!(load_embedded_icon().is_some());
     }
@@ -648,7 +648,7 @@ fn request_existing_window(hwnd:HWND,calendar:bool)->bool {unsafe{
 }}
 
 pub fn activate_existing(calendar:bool)->bool {unsafe{
-    let Ok(tray)=FindWindowW(w!("DaozaiTray"),PCWSTR::null()) else{return false;};
+    let Ok(tray)=FindWindowW(w!("PaofuTray"),PCWSTR::null()) else{return false;};
     let Ok(window)=FindWindowW(PCWSTR::null(),w!("泡浮")) else{return false;};
     let(mut tray_pid,mut window_pid)=(0,0);
     GetWindowThreadProcessId(tray,Some(&mut tray_pid));

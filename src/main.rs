@@ -1,12 +1,12 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
-//! Windows 外壳：无边框透明窗口 + 托盘 + 系统数据，界面全部交给 `daozai::app::App`。
+//! Windows 外壳：无边框透明窗口 + 托盘 + 系统数据，界面全部交给 `paofu::app::App`。
 
 use eframe::egui::{self, Color32, Pos2};
-use daozai::app::{self, App, Cmd, Env, Options};
-use daozai::smtc;
+use paofu::app::{self, App, Cmd, Env, Options};
+use paofu::smtc;
 #[cfg(windows)]
-use daozai::messenger::{self,OpenError,TaskbarEvent};
-use daozai::poll_clock::PollClock;
+use paofu::messenger::{self,OpenError,TaskbarEvent};
+use paofu::poll_clock::PollClock;
 use std::time::{Duration, Instant};
 
 mod diagnostics;
@@ -24,7 +24,7 @@ struct Shell {
     seek_rx: Option<(&'static str,std::sync::mpsc::Receiver<bool>)>,
     media_control:Option<smtc::ControlWorker>,
     music_volume_rx:Option<(String,std::sync::mpsc::Receiver<bool>)>,
-    _resource_monitor:Option<daozai::resources::Monitor>,
+    _resource_monitor:Option<paofu::resources::Monitor>,
     resource_at:PollClock,
     guard_notified:bool,
     media_enabled: smtc::Poller,
@@ -34,24 +34,24 @@ struct Shell {
     placement_at: PollClock,
     placement_scale: f32,
     /// 上次定位时的目标屏幕、水平位置与 OLED 像素偏移；变化后立即重新定位，不等下一次轮询。
-    placement_key: (String, i32, daozai::model::Dock, bool, (i32, i32)),
+    placement_key: (String, i32, paofu::model::Dock, bool, (i32, i32)),
     /// OLED 像素偏移当前实际使用的位移；展开、拖拽、隐藏时保持不变。
     #[cfg(windows)]
     oled_shift: (i32, i32),
     win_x: f32,
     sys: (Option<u8>, bool, PollClock),
     #[cfg(windows)]
-    system_state: daozai::system::Snapshot,
+    system_state: paofu::system::Snapshot,
     #[cfg(windows)]
     system_ready: bool,
     #[cfg(windows)]
-    system_rx: std::sync::mpsc::Receiver<daozai::system::Observation>,
-    fullscreen: Option<daozai::display_layout::Bounds>,
-    input_state:daozai::input::Monitor,
+    system_rx: std::sync::mpsc::Receiver<paofu::system::Observation>,
+    fullscreen: Option<paofu::display_layout::Bounds>,
+    input_state:paofu::input::Monitor,
     #[cfg(windows)]
-    input_keys:Option<daozai::input::Shortcuts>,
+    input_keys:Option<paofu::input::Shortcuts>,
     #[cfg(windows)]
-    incoming: Option<daozai::system::Notifications>,
+    incoming: Option<paofu::system::Notifications>,
     #[cfg(windows)]
     messengers:messenger::Runtime,
     #[cfg(windows)]
@@ -65,34 +65,34 @@ struct Shell {
     hidden: bool,
     /// 毛玻璃皮肤的背景亮度采样（仅毛玻璃皮肤运行）。
     #[cfg(windows)]
-    backdrop: Option<daozai::backdrop::Sampler>,
+    backdrop: Option<paofu::backdrop::Sampler>,
     #[cfg(windows)]
-    native: Option<daozai::native::Window>,
+    native: Option<paofu::native::Window>,
     #[cfg(windows)]
-    tray: Option<daozai::tray::Tray>,
+    tray: Option<paofu::tray::Tray>,
     #[cfg(windows)]
     autostart: bool,
     /// v0.5.4：蓝牙音频设备（后台线程推送）与音量回声的静默窗口。
     #[cfg(windows)]
-    bt_rx: Option<daozai::bt::Service>,
-    bt: Vec<daozai::bt::Device>,
+    bt_rx: Option<paofu::bt::Service>,
+    bt: Vec<paofu::bt::Device>,
     bt_ready: bool,
     volume_quiet: PollClock,
     /// v0.5.5：邮件收信服务（工作线程），以及上次同步给它的账号/开关快照。
     /// 邮箱模块开启时才存在；关闭后收信与整理线程随之退出。
-    mail: Option<daozai::mail::Service>,
-    mail_sig: Option<(bool, u32, Vec<daozai::mail::Account>)>,
+    mail: Option<paofu::mail::Service>,
+    mail_sig: Option<(bool, u32, Vec<paofu::mail::Account>)>,
     /// v0.5.6：日程（CalDAV）服务与上次下发的配置。
     /// 日程模块开启时才存在。
-    cal: Option<daozai::calendar::Service>,
-    cal_sig: Option<(Vec<daozai::calendar::Config>, bool)>,
+    cal: Option<paofu::calendar::Service>,
+    cal_sig: Option<(Vec<paofu::calendar::Config>, bool)>,
     /// 置物架模块开启且记录剪贴板时才监听系统剪贴板。
-    clipboard_watch: Option<daozai::clipboard::Watcher>,
-    quota: daozai::quota::Service,
-    quota_sig: Option<(bool,Vec<daozai::quota::Account>)>,
+    clipboard_watch: Option<paofu::clipboard::Watcher>,
+    quota: paofu::quota::Service,
+    quota_sig: Option<(bool,Vec<paofu::quota::Account>)>,
     quota_at: PollClock,
     /// 手机推送接收端：iPhone 的「快捷指令」把消息发到本机。
-    phone: Option<daozai::phone_bridge::Service>,
+    phone: Option<paofu::phone_bridge::Service>,
     phone_sig: Option<(u32, String)>,
 }
 
@@ -102,22 +102,22 @@ impl Shell {
     /// 按模块开关启停后台服务：关闭的模块不保留任何线程，重新开启时从头对齐配置。
     fn reconcile_modules(&mut self,ctx:&egui::Context){
         let mail_on=self.app.module_on(app::MAIL_PAGE);
-        if mail_on!=self.mail.is_some() {self.mail=mail_on.then(daozai::mail::Service::start);self.mail_sig=None;}
+        if mail_on!=self.mail.is_some() {self.mail=mail_on.then(paofu::mail::Service::start);self.mail_sig=None;}
         let cal_on=self.app.module_on(app::CALENDAR_PAGE);
-        if cal_on!=self.cal.is_some() {self.cal=cal_on.then(daozai::calendar::Service::start);self.cal_sig=None;}
+        if cal_on!=self.cal.is_some() {self.cal=cal_on.then(paofu::calendar::Service::start);self.cal_sig=None;}
         let clipboard_on=self.app.clipboard_active();
         if clipboard_on!=self.clipboard_watch.is_some() {
-            self.clipboard_watch=if clipboard_on {let ctx=ctx.clone();daozai::clipboard::watch(self.app.clipboard.clone(),move||ctx.request_repaint())}else{None};
+            self.clipboard_watch=if clipboard_on {let ctx=ctx.clone();paofu::clipboard::watch(self.app.clipboard.clone(),move||ctx.request_repaint())}else{None};
         }
         // 手机推送：开关、端口或令牌变了就重开监听；关掉时连同线程一起释放。
         if self.app.settings.phone_bridge {
             if self.app.settings.phone_token.trim().is_empty() {
-                self.app.settings.phone_token=daozai::phone_bridge::new_token();
+                self.app.settings.phone_token=paofu::phone_bridge::new_token();
                 self.app.settings.save();
             }
             let sig=(self.app.settings.phone_port,self.app.settings.phone_token.clone());
             if !self.phone_sig.as_ref().is_some_and(|known|*known==sig) {
-                self.phone=Some(daozai::phone_bridge::Service::start(sig.0,sig.1.clone(),ctx.clone()));
+                self.phone=Some(paofu::phone_bridge::Service::start(sig.0,sig.1.clone(),ctx.clone()));
                 self.phone_sig=Some(sig);
             }
         } else {
@@ -159,7 +159,7 @@ impl Shell {
         diagnostics::startup("加载本地配置");
         let mut app = App::new(&cc.egui_ctx, Options::default());
         app.render_compat_running=running_compat;
-        #[cfg(feature="record")] let quota_demo=std::env::var("DAOZAI_QUOTA_DEMO").is_ok();
+        #[cfg(feature="record")] let quota_demo=std::env::var("PAOFU_QUOTA_DEMO").is_ok();
         #[cfg(not(feature="record"))] let quota_demo=false;
         diagnostics::startup("初始化额度配置");
         if !quota_demo{app.quota_initialize();}
@@ -167,31 +167,31 @@ impl Shell {
         if std::env::args().any(|arg|arg=="--settings"){app.open_settings();}
         if std::env::args().any(|arg|arg=="--calendar"){app.open_calendar(None);}
         #[cfg(feature="record")]
-        if std::env::var("DAOZAI_MAIL_DEMO").is_ok(){app.mail_demo();}
+        if std::env::var("PAOFU_MAIL_DEMO").is_ok(){app.mail_demo();}
         #[cfg(feature="record")]
-        if std::env::var("DAOZAI_CAL_DEMO").is_ok(){app.calendar_demo();}
+        if std::env::var("PAOFU_CAL_DEMO").is_ok(){app.calendar_demo();}
         #[cfg(feature="record")]
-        if let Ok(mode)=std::env::var("DAOZAI_QUOTA_DEMO"){app.quota_demo(&mode);}
+        if let Ok(mode)=std::env::var("PAOFU_QUOTA_DEMO"){app.quota_demo(&mode);}
         diagnostics::startup("初始化媒体和托盘");
         let media = smtc::shared();
         let media_enabled=smtc::spawn_poller(media.clone(),cc.egui_ctx.clone());
         media_enabled.store(app.settings.visible_pages[0],std::sync::atomic::Ordering::Relaxed);
         #[cfg(windows)]
-        let autostart = daozai::tray::autostart_enabled();
+        let autostart = paofu::tray::autostart_enabled();
         #[cfg(windows)]
-        let tray = app.start_tray(daozai::tray::State {
+        let tray = app.start_tray(paofu::tray::State {
             pet: app.settings.pet,
             minimal: app.settings.minimal,
             autostart,
         });
         diagnostics::startup("初始化通知监听");
         #[cfg(windows)]
-        let incoming=if app.settings.read_notifications {match daozai::system::connect_with_settings(cc.egui_ctx.clone(),&app.settings){Ok(rx)=>Some(rx),Err(e)=>{app.listener_status=format!("Windows 无法读取通知：{}",e.code());None}}}else{None};
+        let incoming=if app.settings.read_notifications {match paofu::system::connect_with_settings(cc.egui_ctx.clone(),&app.settings){Ok(rx)=>Some(rx),Err(e)=>{app.listener_status=format!("Windows 无法读取通知：{}",e.code());None}}}else{None};
         // 音频、网络与输入法查询由后台完成，避免首帧等待系统服务。
         diagnostics::startup("创建后台采样与窗口");
         let initial_input=None;
-        #[cfg(windows)] let system_state=daozai::system::Snapshot::default();
-        #[cfg(windows)] let system_rx=daozai::system::observe(cc.egui_ctx.clone(),system_state.clone(),initial_input);
+        #[cfg(windows)] let system_state=paofu::system::Snapshot::default();
+        #[cfg(windows)] let system_rx=paofu::system::observe(cc.egui_ctx.clone(),system_state.clone(),initial_input);
         // 岛体大小只作用于主窗口，在首帧之前生效，避免启动时先按 100% 闪一下。
         #[cfg(windows)] eframe::set_root_viewport_scale(app.settings.island_scale());
         Self {
@@ -205,7 +205,7 @@ impl Shell {
             seek_rx: None,
             media_control:None,
             music_volume_rx:None,
-            _resource_monitor:daozai::resources::Monitor::start(daozai::model::config_dir().join("diagnostics")),
+            _resource_monitor:paofu::resources::Monitor::start(paofu::model::config_dir().join("diagnostics")),
             resource_at:PollClock::default(),
             guard_notified:false,
             media_enabled,
@@ -213,7 +213,7 @@ impl Shell {
             placed: false,
             placement_at: PollClock::default(),
             placement_scale: 0.0,
-            placement_key: (String::new(), 0, daozai::model::Dock::Top, true, (0, 0)),
+            placement_key: (String::new(), 0, paofu::model::Dock::Top, true, (0, 0)),
             #[cfg(windows)]
             oled_shift: (0, 0),
             win_x: 0.0,
@@ -223,8 +223,8 @@ impl Shell {
             #[cfg(windows)] system_ready:false,
             #[cfg(windows)] system_rx,
             fullscreen:None,
-            input_state:daozai::input::Monitor::new(initial_input),
-            #[cfg(windows)] input_keys:daozai::input::Shortcuts::start(),
+            input_state:paofu::input::Monitor::new(initial_input),
+            #[cfg(windows)] input_keys:paofu::input::Shortcuts::start(),
             #[cfg(windows)] incoming,
             #[cfg(windows)] messengers:Default::default(),
             #[cfg(windows)] unread_at:PollClock::default(),
@@ -233,7 +233,7 @@ impl Shell {
             #[cfg(windows)] hidden:false,
             #[cfg(windows)] backdrop:None,
             #[cfg(windows)]
-            native: daozai::native::Window::new(cc),
+            native: paofu::native::Window::new(cc),
             #[cfg(windows)]
             tray,
             #[cfg(windows)]
@@ -248,7 +248,7 @@ impl Shell {
             cal: None,
             cal_sig: None,
             clipboard_watch: None,
-            quota: daozai::quota::Service::start(), quota_sig: None, quota_at: PollClock::default(),
+            quota: paofu::quota::Service::start(), quota_sig: None, quota_at: PollClock::default(),
             phone: None,
             phone_sig: None,
         }
@@ -256,7 +256,7 @@ impl Shell {
 
     #[cfg(windows)]
     fn poll_tray(&mut self) {
-        use daozai::tray::{self, Event};
+        use paofu::tray::{self, Event};
         let events = self.tray.as_ref().map(|t| t.poll()).unwrap_or_default();
         for e in events {
             match e {
@@ -311,9 +311,9 @@ impl Shell {
         let cursor = cursor_logical(ppp).map(|(x, y)| Pos2::new(x - origin.x, y - origin.y));
         // 所在屏幕换算到窗口逻辑坐标，供通知详情等浮层避开屏幕边缘。
         #[cfg(windows)]
-        let screen=daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id).map(|d|{
+        let screen=paofu::display_layout::selected(&self.app.displays,&self.app.settings.display_id).map(|d|{
             // 与岛体摆放用同一范围：避开顶栏后，拖动换边和浮层都以顶栏下沿为顶边。
-            let b=daozai::display_layout::placement_bounds(d,self.app.settings.avoids_top_bar());
+            let b=paofu::display_layout::placement_bounds(d,self.app.settings.avoids_top_bar());
             egui::Rect::from_min_max(Pos2::new(b.left as f32/ppp-origin.x,b.top as f32/ppp-origin.y),Pos2::new(b.right as f32/ppp-origin.x,b.bottom as f32/ppp-origin.y))
         });
         #[cfg(not(windows))]
@@ -332,11 +332,11 @@ impl Shell {
             network: Some(self.system_state.network),
             cursor,
             idle_seconds: {
-                #[cfg(windows)] {Some(daozai::system::idle_seconds())}
+                #[cfg(windows)] {Some(paofu::system::idle_seconds())}
                 #[cfg(not(windows))] {None}
             },
             screen_locked: {
-                #[cfg(windows)] {daozai::system::screen_locked()}
+                #[cfg(windows)] {paofu::system::screen_locked()}
                 #[cfg(not(windows))] {false}
             },
             fullscreen_hidden: {
@@ -375,12 +375,12 @@ impl eframe::App for Shell {
         let frame_start=Instant::now();
         if self.resource_at.ready(Duration::from_secs(30)){
             let (count,bytes)={let textures=ctx.tex_manager();let textures=textures.read();(textures.num_allocated(),textures.allocated().map(|(_,info)|info.bytes_used()).sum())};
-            daozai::resources::TEXTURES.store(count,std::sync::atomic::Ordering::Relaxed);
-            daozai::resources::TEXTURE_BYTES.store(bytes,std::sync::atomic::Ordering::Relaxed);
-            daozai::resources::GALLEYS.store(ctx.fonts(|fonts|fonts.num_galleys_in_cache()),std::sync::atomic::Ordering::Relaxed);
+            paofu::resources::TEXTURES.store(count,std::sync::atomic::Ordering::Relaxed);
+            paofu::resources::TEXTURE_BYTES.store(bytes,std::sync::atomic::Ordering::Relaxed);
+            paofu::resources::GALLEYS.store(ctx.fonts(|fonts|fonts.num_galleys_in_cache()),std::sync::atomic::Ordering::Relaxed);
             self.resource_at=PollClock::now();
         }
-        let guarded=daozai::resources::GUARD.tripped();
+        let guarded=paofu::resources::GUARD.tripped();
         if guarded && !self.guard_notified {
             // 资源保护熔断：停止音乐会话轮询（含封面、网易云日志）与歌词查询，保住用户电脑，重启后恢复。
             self.guard_notified=true;self.app.opts.fetch_lyrics=false;
@@ -394,7 +394,7 @@ impl eframe::App for Shell {
         #[cfg(windows)]
         {
             // 用帧间隔限制刷新，绕过部分 Intel 驱动在垂直同步中的忙等待；间隔跟随设置里的帧率上限。
-            let budget=daozai::model::frame_interval(self.app.settings.fps_cap);
+            let budget=paofu::model::frame_interval(self.app.settings.fps_cap);
             if !budget.is_zero() {
                 // 固定节拍推进：休眠只补足到下一帧的目标时刻，不再每帧把基准重置成“现在”，
                 // 这样 sleep 多睡的那零点几毫秒才不会累积成掉帧。
@@ -410,7 +410,7 @@ impl eframe::App for Shell {
         #[cfg(windows)]
         self.poll_tray();
         #[cfg(windows)]
-        let foreground_changed=daozai::native::take_foreground_change();
+        let foreground_changed=paofu::native::take_foreground_change();
         #[cfg(windows)]
         if foreground_changed {
             // 切到别的程序：收起，并在光标离开前不再自动展开
@@ -430,12 +430,12 @@ impl eframe::App for Shell {
                 && (&self.placement_key.0,self.placement_key.2,self.placement_key.3,self.placement_key.4)==(&placement_key.0,placement_key.2,placement_key.3,placement_key.4);
             if !offset_only {
                 self.placement_at=PollClock::now();
-                self.app.displays=daozai::display_layout::connected();
+                self.app.displays=paofu::display_layout::connected();
             }
             self.placement_scale=ctx.pixels_per_point();
             self.placement_key=placement_key;
-            let display=daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id);
-            if display.is_some_and(|d|self.native.as_ref().is_some_and(|w|w.place_on_display(self.placement_scale,daozai::display_layout::placement_bounds_dock(d,self.app.settings.avoids_top_bar(),self.app.settings.dock),offset,self.app.settings.dock,shift))) {
+            let display=paofu::display_layout::selected(&self.app.displays,&self.app.settings.display_id);
+            if display.is_some_and(|d|self.native.as_ref().is_some_and(|w|w.place_on_display(self.placement_scale,paofu::display_layout::placement_bounds_dock(d,self.app.settings.avoids_top_bar(),self.app.settings.dock),offset,self.app.settings.dock,shift))) {
                 if !self.placed {diagnostics::startup("目标屏幕物理坐标定位完成，已请求显示");}
                 self.placed=true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
@@ -475,10 +475,10 @@ impl eframe::App for Shell {
                 self.system_ready=true;
                 self.fullscreen=observation.fullscreen;
             }
-            self.hidden=daozai::display_layout::hide_for_fullscreen(self.app.settings.hide_fullscreen,self.fullscreen,daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id).map(|d|d.bounds));
+            self.hidden=paofu::display_layout::hide_for_fullscreen(self.app.settings.hide_fullscreen,self.fullscreen,paofu::display_layout::selected(&self.app.displays,&self.app.settings.display_id).map(|d|d.bounds));
             // 毛玻璃：在岛体左右两侧和画布底边（都在窗口区域之外）取样，估计岛背后的明暗。
             if self.app.settings.skin.is_glass() && !self.hidden {
-                let sampler=self.backdrop.get_or_insert_with(daozai::backdrop::Sampler::start);
+                let sampler=self.backdrop.get_or_insert_with(paofu::backdrop::Sampler::start);
                 let ppp=ctx.pixels_per_point();
                 if let Some(origin)=self.native.as_ref().and_then(|w|w.logical_origin(ppp)) {
                     let points=self.app.backdrop_points();
@@ -488,7 +488,7 @@ impl eframe::App for Shell {
                 self.backdrop=None;
             }
             if self.app.settings.bluetooth_notifications {
-                if self.bt_rx.is_none() {self.bt_rx=Some(daozai::bt::spawn());}
+                if self.bt_rx.is_none() {self.bt_rx=Some(paofu::bt::spawn());}
             } else {
                 self.bt_rx=None;
                 self.bt.clear();
@@ -508,9 +508,9 @@ impl eframe::App for Shell {
             if let Some(rx)=&self.incoming {
                 rx.taskbar_settings(&self.app.settings);
                 while let Ok(event)=rx.try_recv(){match event {
-                    daozai::system::Incoming::Revoked=>{self.app.settings.read_notifications=false;self.app.settings.save();},
-                    daozai::system::Incoming::Status(s)=>self.app.listener_status=s,
-                    daozai::system::Incoming::Message(a,id,b,target)=>{
+                    paofu::system::Incoming::Revoked=>{self.app.settings.read_notifications=false;self.app.settings.save();},
+                    paofu::system::Incoming::Status(s)=>self.app.listener_status=s,
+                    paofu::system::Incoming::Message(a,id,b,target)=>{
                         if target.is_some_and(|target|self.messengers.track(target)==Err(OpenError::Exited)){continue;}
                         self.app.receive_notification_from(a,id,b,target.map(|target|target.unread));
                     }
@@ -586,7 +586,7 @@ impl eframe::App for Shell {
             let (mail_enabled,mail_interval)=(self.app.mail_active(),self.app.settings.mail_interval);
             if !self.mail_sig.as_ref().is_some_and(|known|(known.0,known.1)==(mail_enabled,mail_interval) && known.2.as_slice()==self.app.mail_accounts()){
                 let sig=(mail_enabled,mail_interval,self.app.mail_accounts().to_vec());
-                let accounts:&[daozai::mail::Account]=if sig.0{ &sig.2 }else{ &[] };
+                let accounts:&[paofu::mail::Account]=if sig.0{ &sig.2 }else{ &[] };
                 mail.sync(accounts,sig.1);
                 self.mail_sig=Some(sig);
             }
@@ -595,7 +595,7 @@ impl eframe::App for Shell {
         // 日程连接或自动同步开关变化时下发给工作线程。
         // 录制/截图演示用的是假账号，别让真服务去连（会立刻失败、把状态改成红色）。
         #[cfg(feature="record")]
-        let cal_demo=std::env::var("DAOZAI_CAL_DEMO").is_ok();
+        let cal_demo=std::env::var("PAOFU_CAL_DEMO").is_ok();
         #[cfg(not(feature="record"))]
         let cal_demo=false;
         if let Some(service)=&self.cal {
@@ -608,7 +608,7 @@ impl eframe::App for Shell {
             }
             while let Some(ev)=service.try_recv(){self.app.calendar_event(ev);}
         }
-        #[cfg(feature="record")] let quota_demo=std::env::var("DAOZAI_QUOTA_DEMO").is_ok();
+        #[cfg(feature="record")] let quota_demo=std::env::var("PAOFU_QUOTA_DEMO").is_ok();
         #[cfg(not(feature="record"))] let quota_demo=false;
         if !quota_demo {
             let (active,config)=(self.app.quota_active(),self.app.quota_config());
@@ -624,7 +624,7 @@ impl eframe::App for Shell {
             .frame(egui::Frame::new().fill(Color32::TRANSPARENT))
             .show(ctx, |ui| {
                 // 左右停靠时画布是竖向的 SIDE_W × SIDE_H。
-                let size=if self.app.settings.dock.is_side() {egui::vec2(daozai::side_dock::SIDE_W,daozai::side_dock::SIDE_H)} else {egui::vec2(app::WIN_W,app::WIN_H)};
+                let size=if self.app.settings.dock.is_side() {egui::vec2(paofu::side_dock::SIDE_W,paofu::side_dock::SIDE_H)} else {egui::vec2(app::WIN_W,app::WIN_H)};
                 let win = egui::Rect::from_min_size(ui.max_rect().min,size);
                 out = Some(self.app.frame(ui, win, &env));
             });
@@ -636,14 +636,14 @@ impl eframe::App for Shell {
             let hovering=env.cursor.is_some_and(|p|out.hit.contains(p)||out.notice_hit.is_some_and(|r|r.contains(p)));
             let shift=if !self.app.settings.oled_shift {(0,0)}
                 else if !self.hidden && !hovering && self.app.oled_shift_idle(ctx) {
-                    ctx.request_repaint_after(daozai::oled_shift::until_next_step(self.t0.elapsed()));
-                    let target=daozai::oled_shift::shift(true,self.app.settings.dock,self.t0.elapsed());
-                    daozai::oled_shift::toward(self.oled_shift,target)
+                    ctx.request_repaint_after(paofu::oled_shift::until_next_step(self.t0.elapsed()));
+                    let target=paofu::oled_shift::shift(true,self.app.settings.dock,self.t0.elapsed());
+                    paofu::oled_shift::toward(self.oled_shift,target)
                 } else {self.oled_shift};
             if shift!=self.oled_shift {
                 self.oled_shift=shift;
-                let display=daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id);
-                if display.is_some_and(|d|self.native.as_ref().is_some_and(|w|w.place_on_display(ctx.pixels_per_point(),daozai::display_layout::placement_bounds_dock(d,self.app.settings.avoids_top_bar(),self.app.settings.dock),self.app.placement_offset(),self.app.settings.dock,shift))) {
+                let display=paofu::display_layout::selected(&self.app.displays,&self.app.settings.display_id);
+                if display.is_some_and(|d|self.native.as_ref().is_some_and(|w|w.place_on_display(ctx.pixels_per_point(),paofu::display_layout::placement_bounds_dock(d,self.app.settings.avoids_top_bar(),self.app.settings.dock),self.app.placement_offset(),self.app.settings.dock,shift))) {
                     self.placement_key.4=shift;
                 }
                 ctx.request_repaint();
@@ -664,7 +664,7 @@ impl eframe::App for Shell {
                     // 拖动、悬停等有输入时满帧跟手；歌词滚动这类自己在动的画面约 30 帧/秒读回，
                     // 未到间隔就预约一次重绘，到时补上读回，动画停下时的最后一帧不会漏掉。
                     let now=Instant::now();
-                    match daozai::layered::readback_delay(self.readback_at,now,other_input) {
+                    match paofu::layered::readback_delay(self.readback_at,now,other_input) {
                         None=>{self.readback_at=Some(now);ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));}
                         Some(wait)=>ctx.request_repaint_after(wait),
                     }
@@ -676,7 +676,7 @@ impl eframe::App for Shell {
             let hit=if self.hidden {(0.0,0.0,0.0,0.0)} else {r(out.hit)};
             native.update(region, hit, if self.hidden{None}else{out.notice_hit.map(r)},if self.hidden{None}else{out.file_drop_zone.map(r)},if self.hidden{None}else{out.glass.as_deref()},ctx.pixels_per_point(), out.editing, !self.hidden && out.expanded);
             if !self.hidden && self.app.settings.avoids_top_bar() && self.app.settings.top_bar_on_top && !self.app.settings.dock.is_side() {
-                if let Some(display)=daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id) {
+                if let Some(display)=paofu::display_layout::selected(&self.app.displays,&self.app.settings.display_id) {
                     native.keep_above_top_bar(display.bounds);
                 }
             }
@@ -738,12 +738,12 @@ impl eframe::App for Shell {
                 }
                 Cmd::Open(p) => {if let Err(e)=open_path(&p){self.app.say(e);}},
                 Cmd::OpenUrl(url)=>{
-                    if let Some(url)=daozai::mail::web_url(&url) {
+                    if let Some(url)=paofu::mail::web_url(&url) {
                         if open_path(std::path::Path::new(&url)).is_err(){self.app.say("无法打开默认浏览器，请检查 Windows 默认应用设置");}
                     }
                 },
                 Cmd::CalendarImport=>{
-                    #[cfg(windows)] match daozai::system::pick_files_for("选择要导入的日历文件（.ics）",true){
+                    #[cfg(windows)] match paofu::system::pick_files_for("选择要导入的日历文件（.ics）",true){
                         Ok(files)=>if !files.is_empty(){
                             let read:Vec<(String,String)>=files.iter().map(|path|{
                                 let name=path.file_name().map(|n|n.to_string_lossy().to_string()).unwrap_or_default();
@@ -756,16 +756,16 @@ impl eframe::App for Shell {
                     }
                 },
                 Cmd::AddFiles=>{
-                    #[cfg(windows)] match daozai::system::pick_files(){Ok(files)=>if !files.is_empty(){self.app.on_drop(files);self.app.show_page(3);},Err(e)=>self.app.say(format!("无法选择文件：{}",e.code()))}
+                    #[cfg(windows)] match paofu::system::pick_files(){Ok(files)=>if !files.is_empty(){self.app.on_drop(files);self.app.show_page(3);},Err(e)=>self.app.say(format!("无法选择文件：{}",e.code()))}
                 },
                 Cmd::DragFile(p)=>{
-                    #[cfg(windows)] if let Err(e)=daozai::system::drag_file(&p){self.app.say(format!("无法拖出文件：{}",e.code()));}
+                    #[cfg(windows)] if let Err(e)=paofu::system::drag_file(&p){self.app.say(format!("无法拖出文件：{}",e.code()));}
                     ctx.input_mut(|i| i.pointer=Default::default());
                 },
                 Cmd::DisconnectNotifications=>{#[cfg(windows)]{self.incoming=None;self.app.settings.read_notifications=false;self.app.settings.save();self.app.listener_status="已断开，不再读取 Windows 通知".into();}},
-                Cmd::Reveal(p)=>{let _=daozai::child_process::spawn(std::process::Command::new("explorer.exe").arg(format!("/select,{}",p.display())));},
+                Cmd::Reveal(p)=>{let _=paofu::child_process::spawn(std::process::Command::new("explorer.exe").arg(format!("/select,{}",p.display())));},
                 Cmd::QuotaChooseFile=>{
-                    #[cfg(windows)] match daozai::system::pick_files_for("选择 AI 账号的登录 JSON 文件",false){Ok(files)=>if let Some(path)=files.into_iter().next(){self.app.quota_set_source(path);},Err(_)=>self.app.say("无法选择登录文件")}
+                    #[cfg(windows)] match paofu::system::pick_files_for("选择 AI 账号的登录 JSON 文件",false){Ok(files)=>if let Some(path)=files.into_iter().next(){self.app.quota_set_source(path);},Err(_)=>self.app.say("无法选择登录文件")}
                 },
                 Cmd::QuotaRefresh=>{
                     if self.quota_at.ready(Duration::from_secs(15)) {
@@ -775,14 +775,14 @@ impl eframe::App for Shell {
                 },
                 Cmd::QuotaConnected=>{self.quota_sig=None;},
                 Cmd::ToggleAutostart=>{
-                    #[cfg(windows)] {let want=!self.autostart;match daozai::tray::set_autostart(want){Ok(())=>self.autostart=want,Err(e)=>self.app.say(e)}}
+                    #[cfg(windows)] {let want=!self.autostart;match paofu::tray::set_autostart(want){Ok(())=>self.autostart=want,Err(e)=>self.app.say(e)}}
                 },
                 Cmd::SetVolume(v)=>{
-                    #[cfg(windows)] daozai::system::set_volume(v);
+                    #[cfg(windows)] paofu::system::set_volume(v);
                     self.volume_quiet=PollClock::now();
                 },
                 Cmd::ToggleMute=>{
-                    #[cfg(windows)] daozai::system::toggle_mute();
+                    #[cfg(windows)] paofu::system::toggle_mute();
                     self.volume_quiet=PollClock::now();
                 },
                 Cmd::Copy(text)=>{ctx.copy_text(text);self.app.say("已复制");},
@@ -790,7 +790,7 @@ impl eframe::App for Shell {
                     #[cfg(windows)] if let Some(tray)=&self.tray{tray.notify(&title,&body,self.app.settings.sound);}
                 },
                 cmd @ (Cmd::RequestNotifications|Cmd::RequestQqNotifications)=>{
-                    #[cfg(windows)] {self.app.settings.qq_only=matches!(cmd,Cmd::RequestQqNotifications);self.app.settings.read_notifications=true;self.app.settings.save();self.incoming=None;match daozai::system::connect_with_settings(ctx.clone(),&self.app.settings){Ok(rx)=>{self.incoming=Some(rx);self.app.listener_status="正在请求 Windows 通知权限…".into();},Err(e)=>self.app.listener_status=format!("Windows 未允许读取通知：{}。需要相应的系统权限或应用身份。",e.code())}}
+                    #[cfg(windows)] {self.app.settings.qq_only=matches!(cmd,Cmd::RequestQqNotifications);self.app.settings.read_notifications=true;self.app.settings.save();self.incoming=None;match paofu::system::connect_with_settings(ctx.clone(),&self.app.settings){Ok(rx)=>{self.incoming=Some(rx);self.app.listener_status="正在请求 Windows 通知权限…".into();},Err(e)=>self.app.listener_status=format!("Windows 未允许读取通知：{}。需要相应的系统权限或应用身份。",e.code())}}
                 },
                 // 模块关闭时设置项已置灰；万一仍有命令到达，只提示，不为它临时启动服务。
                 Cmd::MailSync=>if let Some(mail)=&self.mail {
@@ -805,8 +805,8 @@ impl eframe::App for Shell {
                 Cmd::CalendarSync=>match &self.cal {Some(cal)=>cal.sync_now(),None=>self.app.say(MODULE_OFF)},
                 Cmd::CalendarMonth(month)=>if let Some(cal)=&self.cal {cal.view_month(month);},
                 Cmd::CalendarForget=>{
-                    if let Err(error)=daozai::calendar::forget_config(){self.app.say(&error);continue;}
-                    if let Some(old)=self.app.forget_calendar(){daozai::calendar::secrets::delete(&old);}
+                    if let Err(error)=paofu::calendar::forget_config(){self.app.say(&error);continue;}
+                    if let Some(old)=self.app.forget_calendar(){paofu::calendar::secrets::delete(&old);}
                     if let Some(cal)=&self.cal {
                         let configs=self.app.calendar_configs();
                         cal.configure(configs.clone(),self.app.settings.calendar_auto_sync);
@@ -832,7 +832,7 @@ impl eframe::App for Shell {
         let elapsed=frame_start.elapsed();
         if elapsed>=Duration::from_millis(60) {
             let (page,open)=self.app.debug_state();
-            daozai::resources::append_log(&daozai::model::config_dir().join("diagnostics"),"frames",
+            paofu::resources::append_log(&paofu::model::config_dir().join("diagnostics"),"frames",
                 &format!("帧 {:.0} ms｜页面 {}｜展开 {}",elapsed.as_secs_f64()*1000.0,page,open));
         }
     }
@@ -842,15 +842,15 @@ impl eframe::App for Shell {
 
 /// 额度线程只关心总开关和账号身份；别名、置顶只影响显示，改了不重新查询。
 /// `enabled` 是生效的开关：AI 额度模块开启且额度设置里打开。
-fn quota_sig(enabled:bool,config:&daozai::quota::Config)->(bool,Vec<daozai::quota::Account>){
+fn quota_sig(enabled:bool,config:&paofu::quota::Config)->(bool,Vec<paofu::quota::Account>){
     (enabled,config.accounts.iter().cloned().map(|mut a|{a.alias.clear();a.pinned=false;a}).collect())
 }
 
 /// 与 `quota_sig(enabled,config)==*known` 等价，但每帧调用时不复制账号。
-fn quota_sig_matches(known:&(bool,Vec<daozai::quota::Account>),enabled:bool,config:&daozai::quota::Config)->bool{
+fn quota_sig_matches(known:&(bool,Vec<paofu::quota::Account>),enabled:bool,config:&paofu::quota::Config)->bool{
     known.0==enabled && known.1.len()==config.accounts.len() && known.1.iter().zip(&config.accounts).all(|(known,current)|{
         // 不用 `..`：账号新增字段时这里会编译失败，提醒决定新字段是否需要重新查询。
-        let daozai::quota::Account{id,provider,alias:_,source,slot,enabled,pinned:_}=current;
+        let paofu::quota::Account{id,provider,alias:_,source,slot,enabled,pinned:_}=current;
         known.id==*id && known.provider==*provider && known.source==*source && known.slot==*slot && known.enabled==*enabled
     })
 }
@@ -858,10 +858,10 @@ fn quota_sig_matches(known:&(bool,Vec<daozai::quota::Account>),enabled:bool,conf
 #[cfg(test)]
 mod quota_sig_tests {
     use super::*;
-    use daozai::quota::{Account,Config};
+    use paofu::quota::{Account,Config};
 
     fn account(id:&str)->Account{
-        Account{id:id.into(),provider:daozai::quota::Provider::Claude,alias:"工作".into(),source:"a.json".into(),slot:None,enabled:true,pinned:false}
+        Account{id:id.into(),provider:paofu::quota::Provider::Claude,alias:"工作".into(),source:"a.json".into(),slot:None,enabled:true,pinned:false}
     }
 
     #[test]
@@ -891,12 +891,12 @@ mod quota_sig_tests {
 
 // ---------------- 系统信息 ----------------
 
-/// 帧率诊断：设置环境变量 `DAOZAI_FPS_LOG=1` 时，把每秒实际出帧数追加到数据目录的 diagnostics/fps.log。
+/// 帧率诊断：设置环境变量 `PAOFU_FPS_LOG=1` 时，把每秒实际出帧数追加到数据目录的 diagnostics/fps.log。
 #[cfg(windows)]
 fn fps_probe(cap:u32){
     use std::sync::{Mutex,OnceLock};
     static PROBE:OnceLock<Mutex<(std::time::Instant,u32)>>=OnceLock::new();
-    if std::env::var_os("DAOZAI_FPS_LOG").is_none(){return;}
+    if std::env::var_os("PAOFU_FPS_LOG").is_none(){return;}
     let probe=PROBE.get_or_init(||Mutex::new((std::time::Instant::now(),0)));
     let Ok(mut state)=probe.lock() else{return;};
     state.1+=1;
@@ -904,7 +904,7 @@ fn fps_probe(cap:u32){
     if elapsed.as_secs_f64()<1.0{return;}
     let fps=state.1 as f64/elapsed.as_secs_f64();
     state.0=std::time::Instant::now();state.1=0;
-    let directory=daozai::model::config_dir().join("diagnostics");
+    let directory=paofu::model::config_dir().join("diagnostics");
     let _=std::fs::create_dir_all(&directory);
     let path=directory.join("fps.log");
     if std::fs::metadata(&path).is_ok_and(|m|m.len()>32*1024){let _=std::fs::write(&path,b"");}
@@ -1040,7 +1040,7 @@ mod open_path_tests {
 
     #[test]
     fn unassociated_files_offer_open_with_and_cancellation_is_normal(){
-        let path=std::env::temp_dir().join(format!("泡浮 无关联-{}.daozai-open-test",std::process::id()));
+        let path=std::env::temp_dir().join(format!("泡浮 无关联-{}.paofu-open-test",std::process::id()));
         std::fs::write(&path,b"fixture").unwrap();
         for cancel in [false,true]{
             let mut chosen=false;
@@ -1054,7 +1054,7 @@ mod open_path_tests {
 
     #[test]
     fn default_apps_urls_and_other_errors_never_open_the_file_picker(){
-        let file=std::env::temp_dir().join(format!("daozai-open-errors-{}",std::process::id()));
+        let file=std::env::temp_dir().join(format!("paofu-open-errors-{}",std::process::id()));
         std::fs::write(&file,b"fixture").unwrap();
         for result in [Ok(()),Err(error(ERROR_ACCESS_DENIED)),Err(error(ERROR_FILE_NOT_FOUND))]{
             let success=result.is_ok();
@@ -1066,9 +1066,9 @@ mod open_path_tests {
         for (path,result,success) in [
             ("https://example.com",Ok(()),true),
             ("https://example.com",Err(error(ERROR_NO_ASSOCIATION)),false),
-            ("missing.daozai-open-test",Err(error(ERROR_NO_ASSOCIATION)),false),
-            ("missing.daozai-open-test",Err(error(ERROR_FILE_NOT_FOUND)),false),
-            ("blocked.daozai-open-test",Err(error(ERROR_ACCESS_DENIED)),false),
+            ("missing.paofu-open-test",Err(error(ERROR_NO_ASSOCIATION)),false),
+            ("missing.paofu-open-test",Err(error(ERROR_FILE_NOT_FOUND)),false),
+            ("blocked.paofu-open-test",Err(error(ERROR_ACCESS_DENIED)),false),
         ]{
             let actual=open_path_result(std::path::Path::new(path),result,||panic!("非文件关联问题不能弹出打开方式"));
             assert_eq!(actual.is_ok(),success);
@@ -1080,8 +1080,8 @@ fn main() -> std::process::ExitCode {
     diagnostics::install();
     // 收集诊断：在单实例检查、创建窗口和初始化显卡之前处理，泡浮启动即崩溃、卡死时也能用。
     #[cfg(windows)]
-    if daozai::diagnostics_tool::requested(std::env::args()) {
-        return match daozai::diagnostics_tool::run(&daozai::model::config_dir()) {
+    if paofu::diagnostics_tool::requested(std::env::args()) {
+        return match paofu::diagnostics_tool::run(&paofu::model::config_dir()) {
             Ok(_) => std::process::ExitCode::SUCCESS,
             Err(error) => {diagnostics::report("诊断收集未完成。", &error); std::process::ExitCode::FAILURE}
         };
@@ -1100,17 +1100,17 @@ fn run() -> eframe::Result<()> {
     diagnostics::wait_for_previous_instance();
     // 单实例（与原版同名互斥体）
     #[cfg(windows)]
-    if !daozai::tray::single_instance() {
-        if !daozai::tray::activate_existing(std::env::args().any(|arg|arg=="--calendar")) {
+    if !paofu::tray::single_instance() {
+        if !paofu::tray::activate_existing(std::env::args().any(|arg|arg=="--calendar")) {
             diagnostics::report("泡浮已在运行，但暂时无法打开窗口。\n请稍后重试；若仍无法打开，请在任务管理器的“详细信息”中结束 泡浮.exe 后重试。", "已有实例可能正在启动或已无响应。请稍后重试；若仍无法打开，请在任务管理器的“详细信息”中结束 泡浮.exe，再重新启动。");
         }
         return Ok(());
     }
     #[cfg(windows)]
-    std::thread::spawn(daozai::record_install_size);
+    std::thread::spawn(paofu::record_install_size);
     diagnostics::startup("初始化图形窗口");
     let viewport = egui::ViewportBuilder::default()
-        .with_title("泡浮").with_icon(daozai::theme::app_icon())
+        .with_title("泡浮").with_icon(paofu::theme::app_icon())
         .with_inner_size([app::CANVAS_W, app::WIN_H])
         .with_decorations(false)
         .with_transparent(true)

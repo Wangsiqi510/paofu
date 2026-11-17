@@ -1,10 +1,10 @@
 ﻿param(
     [string]$OutputDirectory = [Environment]::GetFolderPath('Desktop'),
-    [string]$DataDirectory = $(if ($env:DAOZAI_DATA_DIR) { $env:DAOZAI_DATA_DIR } else { Join-Path $env:APPDATA 'Daozai' }),
+    [string]$DataDirectory = $(if ($env:PAOFU_DATA_DIR) { $env:PAOFU_DATA_DIR } else { Join-Path $env:APPDATA 'Paofu' }),
     [switch]$RevealArchive
 )
 $ErrorActionPreference = 'Stop'
-$collectionRoot = Join-Path ([IO.Path]::GetTempPath()) ('daozai-diagnostics-' + [guid]::NewGuid().ToString('N'))
+$collectionRoot = Join-Path ([IO.Path]::GetTempPath()) ('paofu-diagnostics-' + [guid]::NewGuid().ToString('N'))
 $utf8 = New-Object System.Text.UTF8Encoding($true)
 $missing = New-Object 'System.Collections.Generic.List[string]'
 function Save-Text([string]$Name, [string]$Value) {
@@ -53,12 +53,12 @@ try {
         $info.FeatureSettings = @([IO.File]::ReadAllLines($settingsPath) | Where-Object { $_ -match '^(notifications|wechat_notifications|wechat_tray_open|wecom_notifications|feishu_notifications|dingtalk_notifications|read_notifications|qq_only|visible_pages|page_order|lyrics_enabled|island_lyrics|render_compat|calendar_auto_sync|mail_enabled)=' })
     }
     try {
-        Add-Type -TypeDefinition 'public static class DaozaiDiagnosticGui { [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern uint GetGuiResources(System.IntPtr process, uint flags); }'
-        $info.Processes = @(Get-Process -Name daozai -ErrorAction SilentlyContinue | ForEach-Object {
+        Add-Type -TypeDefinition 'public static class PaofuDiagnosticGui { [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern uint GetGuiResources(System.IntPtr process, uint flags); }'
+        $info.Processes = @(Get-Process -Name 泡浮 -ErrorAction SilentlyContinue | ForEach-Object {
             $processInfo = [ordered]@{ Id = $_.Id; StartedAt = $_.StartTime.ToString('o'); Handles = $_.HandleCount; Threads = $_.Threads.Count; PrivateBytes = $_.PrivateMemorySize64; WorkingBytes = $_.WorkingSet64 }
             try {
-                $processInfo.GdiObjects = [DaozaiDiagnosticGui]::GetGuiResources($_.Handle, 0)
-                $processInfo.UserObjects = [DaozaiDiagnosticGui]::GetGuiResources($_.Handle, 1)
+                $processInfo.GdiObjects = [PaofuDiagnosticGui]::GetGuiResources($_.Handle, 0)
+                $processInfo.UserObjects = [PaofuDiagnosticGui]::GetGuiResources($_.Handle, 1)
                 $processInfo.Version = $_.MainModule.FileVersionInfo.FileVersion
                 $processInfo.Sha256 = (Get-FileHash -LiteralPath $_.Path -Algorithm SHA256).Hash
             } catch { $processInfo.Details = '无法读取部分进程信息' }
@@ -66,11 +66,11 @@ try {
         })
     } catch { $info.ProcessQuery = '无法读取进程信息' }
     try {
-        $faultQuery = "*[System[(EventID=1000 or EventID=1001 or EventID=1002) and TimeCreated[timediff(@SystemTime) <= 604800000]] and EventData[Data[@Name='AppName']='daozai.exe' or Data[@Name='P1']='daozai.exe']]"
+        $faultQuery = "*[System[(EventID=1000 or EventID=1001 or EventID=1002) and TimeCreated[timediff(@SystemTime) <= 604800000]] and EventData[Data[@Name='AppName']='泡浮.exe' or Data[@Name='P1']='泡浮.exe']]"
         $info.ApplicationFaults = @(Get-WinEvent -LogName Application -FilterXPath $faultQuery -MaxEvents 30 -ErrorAction SilentlyContinue | ForEach-Object {
             $eventData = @{}
             foreach ($node in ([xml]$_.ToXml()).Event.EventData.Data) { if ($node.Name) { $eventData[[string]$node.Name] = $node.InnerText } }
-            if ($eventData.AppName -ine 'daozai.exe' -and $eventData.P1 -ine 'daozai.exe') { return }
+            if ($eventData.AppName -ine '泡浮.exe' -and $eventData.P1 -ine '泡浮.exe') { return }
             $fault = [ordered]@{ At = $_.TimeCreated.ToString('o'); EventId = $_.Id; Provider = $_.ProviderName }
             foreach ($key in @('AppName', 'AppVersion', 'ModuleName', 'ModuleVersion', 'ExceptionCode', 'FaultingOffset', 'EventName', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8')) {
                 if ($eventData.ContainsKey($key)) { $fault[$key] = $eventData[$key] }
@@ -85,7 +85,7 @@ try {
     try {
         Add-Type -TypeDefinition @'
 using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
-public static class DaozaiDiagnosticWindows {
+public static class PaofuDiagnosticWindows {
     delegate bool Visit(IntPtr window, IntPtr data);
     [DllImport("user32.dll")] static extern bool EnumWindows(Visit visit, IntPtr data);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
@@ -123,7 +123,7 @@ public static class DaozaiDiagnosticWindows {
         })
         $pids = New-Object 'System.Collections.Generic.HashSet[uint32]'
         foreach ($client in $clients) { [void]$pids.Add([uint32]$client.Id) }
-        $info.MessengerWindows = @([DaozaiDiagnosticWindows]::Of($pids))
+        $info.MessengerWindows = @([PaofuDiagnosticWindows]::Of($pids))
     } catch { $info.MessengerQuery = '无法读取消息客户端窗口信息' }
     # 系统媒体会话：Windows 当前看到哪些播放器、播放状态与类型；只记「有没有」歌名，不记歌名本身。
     try {
@@ -154,12 +154,12 @@ public static class DaozaiDiagnosticWindows {
     } catch { $info.MusicPlayerQuery = '无法读取音乐播放器进程' }
     Save-Text 'environment.json' ($info | ConvertTo-Json -Depth 7)
     New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-    $archive = Join-Path $OutputDirectory ('岛仔诊断-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.zip')
+    $archive = Join-Path $OutputDirectory ('泡浮诊断-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '.zip')
     Compress-Archive -Path (Join-Path $collectionRoot '*') -DestinationPath $archive
     Write-Output ('诊断包已保存：' + $archive)
-    Write-Output '请将诊断包发给开发者，并说明异常出现时间、重启岛仔能否恢复、是否发生在睡眠唤醒后。'
+    Write-Output '请将诊断包发给开发者，并说明异常出现时间、重启泡浮能否恢复、是否发生在睡眠唤醒后。'
     Write-Output '音乐没有歌名、封面或歌词时，请在歌曲播放中运行诊断，并说明使用的播放模式（歌单、电台、FM、漫游等）。'
-    Write-Output '诊断包含岛仔日志、功能开关、系统与显卡信息、消息窗口类型和播放器状态。音乐日志可能含有歌名和歌手。诊断包由你决定是否分享。'
+    Write-Output '诊断包含泡浮日志、功能开关、系统与显卡信息、消息窗口类型和播放器状态。音乐日志可能含有歌名和歌手。诊断包由你决定是否分享。'
     if ($RevealArchive) {
         Read-Host '按回车键查看诊断包' | Out-Null
         Start-Process -FilePath (Join-Path $env:WINDIR 'explorer.exe') -ArgumentList ('/select,"' + $archive + '"')

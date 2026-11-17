@@ -193,7 +193,7 @@ fn get_with_proxy(agent: &ureq::Agent, url: &url::Url, service: &str, proxy: Opt
 fn request(agent: &ureq::Agent, url: &url::Url, service: &str, route: &str) -> Result<Value,(String,bool)> {
     let start=std::time::Instant::now();
     let mut detail="ok".to_string();
-    let result=agent.get(url.as_str()).set("Accept", "application/json").set("User-Agent",concat!("Daozai/",env!("CARGO_PKG_VERSION"))).call()
+    let result=agent.get(url.as_str()).set("Accept", "application/json").set("User-Agent",concat!("Paofu/",env!("CARGO_PKG_VERSION"))).call()
         .map_err(|error| match error {
             ureq::Error::Status(code, _) => {detail=format!("http_{code}");(format!("服务返回 {code}"),code>=500 || code==403 || code==408)},
             ureq::Error::Transport(error) => {
@@ -1081,7 +1081,7 @@ mod tests {
     fn weather_late_results_do_not_restore_disabled_or_changed_locations(){
         for (city,enabled) in [("杭州",false),("北京",true)] {
             let (tx,rx)=mpsc::channel();
-            let path=std::env::temp_dir().join(format!("daozai-weather-discard-{}-{enabled}.json",std::process::id()));
+            let path=std::env::temp_dir().join(format!("paofu-weather-discard-{}-{enabled}.json",std::process::id()));
             let mut state=State{snapshot:Some(Snapshot{place:"上次天气".into(),..Default::default()}),
                 loading:true,last_city:Some("杭州".into()),rx:Some((rx,false)),cache:Some(path.clone()),..Default::default()};
             tx.send(Ok(Snapshot{place:"杭州".into(),..Default::default()})).unwrap();

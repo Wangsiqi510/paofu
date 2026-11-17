@@ -7,7 +7,7 @@ Unicode true
 !include "FileFunc.nsh"
 
 !ifndef APP_ID
-  !define APP_ID "泡浮"
+  !define APP_ID "Paofu"
 !endif
 !ifndef APP_NAME
   !define APP_NAME "泡浮"
@@ -25,8 +25,8 @@ VIAddVersionKey /LANG=2052 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=2052 "FileDescription" "${APP_NAME}安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=2052 "LegalCopyright" "泡浮贡献者"
-!define MUI_ICON "${PROJECT_DIR}\assets\daozai.ico"
-!define MUI_UNICON "${PROJECT_DIR}\assets\daozai.ico"
+!define MUI_ICON "${PROJECT_DIR}\assets\paofu.ico"
+!define MUI_UNICON "${PROJECT_DIR}\assets\paofu.ico"
 !define MUI_ABORTWARNING
 Var BrandIcon
 Var PathInput
@@ -45,7 +45,7 @@ Page custom InstallPage InstallPageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "SimpChinese"
-BrandingText "泡浮 · Daozai"
+BrandingText "泡浮"
 SetFont "Microsoft YaHei UI" 9
 
 Function .onInit
@@ -91,7 +91,7 @@ Function InstallPage
   nsDialogs::Create 1018
   Pop $0
   InitPluginsDir
-  File /oname=$PLUGINSDIR\brand.ico "${PROJECT_DIR}\assets\daozai.ico"
+  File /oname=$PLUGINSDIR\brand.ico "${PROJECT_DIR}\assets\paofu.ico"
   ${NSD_CreateIcon} 0 6u 44u 44u ""
   Pop $0
   System::Call 'user32::LoadImageW(p 0, w "$PLUGINSDIR\brand.ico", i 1, i 64, i 64, i 0x10) p .r1'
@@ -151,9 +151,9 @@ Function CheckFolderPath
   StrCpy $0 0
 FunctionEnd
 
-; 选中的文件夹里已有别的东西（又不是泡浮自己的）时，在其中新建 Daozai 子文件夹，
+; 选中的文件夹里已有别的东西（又不是泡浮自己的）时，在其中新建 Paofu 子文件夹，
 ; 避免把整个共享文件夹登记成泡浮的安装位置（软件管家会把整个文件夹的大小算到泡浮头上）。
-; 文件夹本身叫 Daozai、里面已有泡浮（原地升级）、不存在或为空（用户特意准备的）时原样使用。
+; 文件夹本身叫 Paofu、里面已有泡浮（原地升级）、不存在或为空（用户特意准备的）时原样使用。
 Function EnsureOwnFolder
   Call CheckFolderPath
   ${If} $0 == 0
@@ -213,7 +213,7 @@ Function ValidateDirectory
   SetErrorLevel 0
   Return
   invalid:
-    MessageBox MB_OK|MB_ICONEXCLAMATION "请选择可写入的完整安装文件夹，例如 D:\Apps\Daozai。不要选择磁盘根目录或需要管理员权限的文件夹。" /SD IDOK
+    MessageBox MB_OK|MB_ICONEXCLAMATION "请选择可写入的完整安装文件夹，例如 D:\Apps\Paofu。不要选择磁盘根目录或需要管理员权限的文件夹。" /SD IDOK
     SetErrorLevel 1
     Abort
 FunctionEnd
@@ -276,7 +276,7 @@ Section "安装"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}设置.lnk" "$INSTDIR\泡浮.exe" "--settings"
   ; 泡浮打不开、卡死时的备用入口；能打开时用「设置 → 关于 → 收集诊断」。
   CreateShortcut "$SMPROGRAMS\收集${APP_NAME}诊断.lnk" "$INSTDIR\泡浮.exe" "--collect-diagnostics" "$INSTDIR\泡浮.exe" 0
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME} Daozai"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "泡浮"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
@@ -304,6 +304,8 @@ FunctionEnd
 Section "Uninstall"
   Call un.CheckClosed
   Delete "$INSTDIR\泡浮.exe"
+  Delete "$INSTDIR\paofu-previous.exe"
+  Delete "$INSTDIR\paofu-v0.2-backup.exe"
   Delete "$INSTDIR\daozai-previous.exe"
   Delete "$INSTDIR\daozai-v0.2-backup.exe"
   Delete "$INSTDIR\LICENSE"

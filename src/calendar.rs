@@ -18,7 +18,7 @@ use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 use chrono::{Datelike, NaiveDate};
 
-pub const SERVICE: &str = "Daozai.Calendar";
+pub const SERVICE: &str = "Paofu.Calendar";
 /// 开启自动同步时每 5 分钟更新一次。
 const SYNC_SECS: u64 = 300;
 /// 只取未来 24 小时。
@@ -536,7 +536,7 @@ fn agent() -> Result<ureq::Agent, Failure> {
         .timeout_write(Duration::from_secs(20))
         .timeout(Duration::from_secs(30))
         .redirects(0)
-        .user_agent(concat!("Daozai/",env!("CARGO_PKG_VERSION")));
+        .user_agent(concat!("Paofu/",env!("CARGO_PKG_VERSION")));
     // 仅日历使用系统证书验证，继承用户已信任的自签证书和私有 CA。
     #[cfg(windows)]
     let builder = builder.tls_connector(std::sync::Arc::new(native_tls::TlsConnector::new()
@@ -1164,7 +1164,7 @@ impl Service {
         let (cmd_tx, cmd_rx) = channel();
         let (ev_tx, ev_rx) = channel();
         let _ = std::thread::Builder::new()
-            .name("daozai-calendar".into())
+            .name("paofu-calendar".into())
             .spawn(move || run(cmd_rx, ev_tx));
         Self { cmd: cmd_tx, ev: ev_rx }
     }
@@ -1218,7 +1218,7 @@ fn run_with(cmd_rx: Receiver<Cmd>, ev: Sender<Event>, interval: Duration, mut sy
             Ok(Cmd::Test(c, password)) => {
                 let ev = ev.clone();
                 let _ = std::thread::Builder::new()
-                    .name("daozai-calendar-test".into())
+                    .name("paofu-calendar-test".into())
                     .spawn(move || {
                         let result = fetch(&c, &password);
                         let (ok, message, count, config) = match result {

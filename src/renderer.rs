@@ -59,8 +59,8 @@ mod tests {
     #[test]
     fn fallback_marker_turns_on_compat_rendering_once() {
         let _g = crate::ui_tests::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let dir = std::env::temp_dir().join(format!("daozai-renderer-{}", std::process::id()));
-        std::env::set_var("DAOZAI_DATA_DIR", &dir);
+        let dir = std::env::temp_dir().join(format!("paofu-renderer-{}", std::process::id()));
+        std::env::set_var("PAOFU_DATA_DIR", &dir);
         assert!(apply_pending_fallback().is_none(), "没有标记时不改动设置");
         request_fallback("igxelpicd64.dll");
         let reason = apply_pending_fallback().expect("有标记时打开兼容渲染");
@@ -68,7 +68,7 @@ mod tests {
         let settings = crate::model::Settings::load();
         assert!(settings.render_compat && settings.render_compat_reason == reason);
         assert!(apply_pending_fallback().is_none() && !marker().exists(), "标记只生效一次");
-        std::env::remove_var("DAOZAI_DATA_DIR");
+        std::env::remove_var("PAOFU_DATA_DIR");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

@@ -83,5 +83,5 @@ pub mod tray;
 #[cfg(test)]
 mod ui_tests;
 #[cfg(test)]
-#[path = "bin/daozai-record/raster.rs"]
+#[path = "bin/paofu-record/raster.rs"]
 mod preview_raster;

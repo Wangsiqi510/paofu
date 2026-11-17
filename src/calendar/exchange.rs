@@ -142,7 +142,7 @@ fn top_status(n: &Node) -> &str {
 fn command(agent: &ureq::Agent, cfg: &Config, password: &str, name: &str, root: &Node, policy: Option<&str>) -> Result<Node, Failure> {
     let mut target = endpoint(cfg)?;
     // 固定匿名设备标识，完整快照按顺序读取，不保存同步键或日程正文。
-    target.query_pairs_mut().extend_pairs([("Cmd", name), ("User", cfg.username.as_str()), ("DeviceId", "DaozaiCalendar01"), ("DeviceType", "Daozai")]);
+    target.query_pairs_mut().extend_pairs([("Cmd", name), ("User", cfg.username.as_str()), ("DeviceId", "PaofuCalendar01"), ("DeviceType", "Paofu")]);
     let mut request = agent.post(target.as_str())
         .set("Authorization", &super::basic_auth(&cfg.username, password))
         .set("MS-ASProtocolVersion", "14.0")
@@ -618,12 +618,12 @@ mod tests {
     #[test]
     #[ignore = "显式验证企业微信账号；仅输出数量，成功后可按环境变量保存连接"]
     fn live_wecom_connection() {
-        let mut cfg = Config { provider: Provider::WeCom, username: std::env::var("DAOZAI_WECOM_USER").unwrap(), href: None, server: None };
-        let password = std::env::var("DAOZAI_WECOM_PASSWORD").unwrap();
+        let mut cfg = Config { provider: Provider::WeCom, username: std::env::var("PAOFU_WECOM_USER").unwrap(), href: None, server: None };
+        let password = std::env::var("PAOFU_WECOM_PASSWORD").unwrap();
         let month = super::super::fetch_month(&cfg, &password, chrono::Local::now().date_naive()).unwrap();
         let upcoming = super::super::fetch(&cfg, &password).unwrap();
         eprintln!("wecom month_events={} upcoming_events={}", month.events.len(), upcoming.events.len());
-        if std::env::var("DAOZAI_WECOM_SAVE").as_deref() == Ok("1") {
+        if std::env::var("PAOFU_WECOM_SAVE").as_deref() == Ok("1") {
             cfg.href = Some(month.href);
             super::super::save_connection(&cfg, &password, None).unwrap();
         }

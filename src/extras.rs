@@ -1191,60 +1191,6 @@ fn about_brand()->(String,String){
     (name,note)
 }
 
-fn support_author(ui:&mut egui::Ui){
-    let id=egui::Id::new("support-author-open");
-    let open=ui.ctx().data(|data|data.get_temp::<bool>(id).unwrap_or(false));
-    if !open {release_support_codes(ui.ctx());}
-    let dark=ui.visuals().dark_mode;
-    let accent=if dark{Color32::from_rgb(182,163,245)}else{Color32::from_rgb(105,77,163)};
-    ui.scope(|ui|{
-    ui.set_min_height(225.0);
-    if !open {
-    egui::Frame::new().fill(if dark{Color32::from_rgb(42,37,53)}else{Color32::from_rgb(239,233,250)})
-        .corner_radius(10.0).show(ui,|ui|{
-            ui.set_min_width(ui.available_width());
-            ui.vertical_centered(|ui|{
-                ui.add(egui::Image::new(egui::include_image!("../assets/support/daozai-coffee.svg")).fit_to_exact_size(egui::vec2(211.0,110.0)));
-            });
-        });
-    ui.add_space(9.0);
-    ui.label(egui::RichText::new("小唐维护 · 泡浮陪伴").size(10.5).color(accent));
-    ui.label(egui::RichText::new("请小唐喝杯咖啡").size(19.0).strong());
-    ui.label("泡浮陪你认真生活，\n你的支持，陪小唐把它慢慢做好。");
-    } else {
-        let ctx=ui.ctx().clone();
-        // 只解码一次并裁出二维码区域，按实际显示像素缩小：原图解码后两张合计约 17MB，缩小后不到 1MB。
-        let pixels=((180.0*ctx.pixels_per_point()).ceil() as u32).clamp(180,600);
-        ui.columns(2,|columns|{
-            for (i,(name,bytes,crop,color)) in [
-                ("微信支付",include_bytes!("../assets/support/support-wechat-original.jpg").as_slice(),[330.0,370.0,600.0],Color32::from_rgb(5,160,80)),
-                ("支付宝",include_bytes!("../assets/support/support-alipay-original.jpg").as_slice(),[200.0,660.0,860.0],Color32::from_rgb(22,120,255)),
-            ].into_iter().enumerate(){
-                let texture_id=egui::Id::new(("support-author-qr",i));
-                let texture=ctx.data_mut(|data|data.get_temp::<egui::TextureHandle>(texture_id)).filter(|texture|texture.size()==[pixels as usize;2]).unwrap_or_else(||{
-                    let image=support_code_image(bytes,crop,pixels);
-                    let texture=ctx.load_texture(name,image,egui::TextureOptions::LINEAR);
-                    ctx.data_mut(|data|data.insert_temp(texture_id,texture.clone()));texture
-                });
-                let uv=egui::Rect::from_min_max(egui::pos2(0.0,0.0),egui::pos2(1.0,1.0));
-                columns[i].vertical_centered(|ui|{
-                    ui.label(egui::RichText::new(name).color(color).strong());
-                    let side=ui.available_width().min(180.0);
-                    ui.add(egui::Image::new((texture.id(),egui::vec2(side,side))).uv(uv));
-                    ui.label(egui::RichText::new(if i==0{"打开微信扫一扫"}else{"打开支付宝扫一扫"}).size(11.0));
-                });
-            }
-        });
-    }
-    });
-    let button=egui::Button::new(egui::RichText::new(if open{"返回"}else{"请喝咖啡 · 支持作者"}).color(Color32::from_rgb(33,27,51)))
-        .fill(Color32::from_rgb(182,163,245)).corner_radius(8.0);
-    if ui.add_sized([ui.available_width(),32.0],button).clicked(){
-        ui.ctx().data_mut(|data|data.insert_temp(id,!open));
-    }
-    ui.add_space(7.0);
-    ui.label(egui::RichText::new("完全自愿 · 感谢每一份支持 · 不影响功能使用").size(11.0).color(ui.visuals().weak_text_color()));
-}
 pub(crate) fn settings_control_row(ui:&mut egui::Ui,title:&str,label_width:f32,controls:impl FnOnce(&mut egui::Ui)->egui::Response)->egui::Response{
     ui.horizontal(|ui|{
         // 同一张卡片里的控件左缘对齐：标签列至少 SETTINGS_LABEL_W。
@@ -1315,11 +1261,11 @@ const SETTINGS_GROUPS: [(&str,usize,usize);9] = [
 
 impl App {
     pub fn settings_ui(&mut self,ctx:&egui::Context,autostart:bool){
-        if !self.settings_open{self.window_layout().close();release_support_codes(ctx);self.weather_source.close();}
+        if !self.settings_open{self.window_layout().close();self.weather_source.close();}
         self.updates.poll(ctx);
         self.updates.dialog_ui(ctx);
         if !self.settings_open{return;}
-        let id=egui::ViewportId::from_hash_of("daozai-settings");
+        let id=egui::ViewportId::from_hash_of("paofu-settings");
         let focus_requested=std::mem::take(&mut self.settings_focus_requested);
         let opening=self.window_layout().open();
         ctx.show_viewport_immediate(id,egui::ViewportBuilder::default().with_title("泡浮设置").with_icon(theme::app_icon()).with_inner_size([690.0,560.0]).with_min_inner_size([600.0,450.0]).with_visible(false).with_active(false).with_window_level(egui::WindowLevel::Normal),|ctx,_|{
@@ -2149,7 +2095,7 @@ impl App {
                         });
                     }
                     _=>{
-                        settings_label(ui,"泡浮 Daozai");
+                        settings_label(ui,"泡浮 Paofu");
                         let (name,note)=about_brand();
                         settings_label(ui,&name);
                         settings_card(ui,|ui|{
@@ -2176,36 +2122,3 @@ impl App {
     }
 }
 
-/// 收款码只在「支持作者」卡片展开时占用贴图；收起卡片或关闭设置窗口即释放。
-fn release_support_codes(ctx:&egui::Context){
-    ctx.data_mut(|data|for i in 0..2usize {data.remove::<egui::TextureHandle>(egui::Id::new(("support-author-qr",i)));});
-}
-
-/// 从原图裁出二维码区域 `[x, y, 边长]` 并缩放到 `pixels` 见方。
-fn support_code_image(bytes:&[u8],crop:[f32;3],pixels:u32)->egui::ColorImage {
-    let image=image::load_from_memory(bytes).expect("内置收款码图片有效");
-    let side=(crop[2] as u32).min(image.width().saturating_sub(crop[0] as u32)).min(image.height().saturating_sub(crop[1] as u32));
-    let code=image.crop_imm(crop[0] as u32,crop[1] as u32,side,side).resize_exact(pixels,pixels,image::imageops::FilterType::Lanczos3).to_rgba8();
-    egui::ColorImage::from_rgba_unmultiplied([pixels as usize,pixels as usize],code.as_raw())
-}
-
-#[test]
-fn support_codes_are_cropped_small_and_released_when_hidden(){
-    for (bytes,crop) in [(include_bytes!("../assets/support/support-wechat-original.jpg").as_slice(),[330.0,370.0,600.0]),(include_bytes!("../assets/support/support-alipay-original.jpg").as_slice(),[200.0,660.0,860.0])] {
-        let image=support_code_image(bytes,crop,360);
-        assert_eq!(image.size,[360,360]);
-        assert!(image.pixels.len()*4<=600*1024,"每张收款码贴图应小于 0.6MB");
-        // 裁剪结果应是二维码本身：同时含有大量深色与浅色像素。
-        let dark=image.pixels.iter().filter(|p|p.r()<80).count() as f32/image.pixels.len() as f32;
-        assert!((0.2..0.8).contains(&dark),"裁剪区域不像二维码：深色占比 {dark}");
-    }
-    let ctx=egui::Context::default();
-    let _=ctx.run(Default::default(),|ctx|{
-        let texture=ctx.load_texture("qr",egui::ColorImage::new([4,4],Color32::WHITE),Default::default());
-        ctx.data_mut(|data|data.insert_temp(egui::Id::new(("support-author-qr",0usize)),texture));
-    });
-    assert_eq!(ctx.tex_manager().read().allocated().filter(|(_,meta)|meta.name=="qr").count(),1);
-    release_support_codes(&ctx);
-    let _=ctx.run(Default::default(),|_|{});
-    assert_eq!(ctx.tex_manager().read().allocated().filter(|(_,meta)|meta.name=="qr").count(),0,"收起后应释放收款码贴图");
-}

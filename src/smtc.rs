@@ -1261,7 +1261,7 @@ mod tests {
     fn media_kind_checks_video_type_before_song_metadata(){
         let mut np=NowPlaying{title:"Video title".into(),artist:"Video author".into(),playback_type:MediaKind::Video,..Default::default()};
         assert_eq!(np.kind(),MediaKind::Video);
-        np.playback_type=MediaKind::Music;np.title="小唐的Token的抖音 - 抖音".into();
+        np.playback_type=MediaKind::Music;np.title="泡浮测试账号的抖音 - 抖音".into();
         assert_eq!(np.kind(),MediaKind::Video,"浏览器错误上报音乐类型时仍应识别明确的视频标题");
         np.title="Movie - YouTube".into();assert_eq!(np.kind(),MediaKind::Video);
         np.title="阿拉斯加海湾".into();np.artist="蓝心羽".into();assert!(np.is_music());
@@ -1323,7 +1323,7 @@ mod tests {
         std::thread::sleep(Duration::from_secs(2));
         let first=state.lock().unwrap().clone();
         assert!(first.is_music() && first.playing,"请先播放音乐");
-        let expected=std::env::var("DAOZAI_EXPECT_SOURCE").expect("请指定实测客户端").to_lowercase();
+        let expected=std::env::var("PAOFU_EXPECT_SOURCE").expect("请指定实测客户端").to_lowercase();
         assert!(first.source.to_lowercase().contains(&expected),"正在播放的客户端不符：{}",first.source);
         for _ in 0..4 {
             control(Transport::Next,&first.source);
@@ -1365,18 +1365,18 @@ mod tests {
     #[test]
     #[ignore="按指定来源发送一次播放控制，仅用于本机验收"]
     fn live_client_transport(){
-        let source=std::env::var("DAOZAI_CONTROL_SOURCE").unwrap();
-        let cmd=match std::env::var("DAOZAI_CONTROL").unwrap().as_str(){"next"=>Transport::Next,"prev"=>Transport::Prev,"toggle"=>Transport::Toggle,_=>panic!("未知控制")};
+        let source=std::env::var("PAOFU_CONTROL_SOURCE").unwrap();
+        let cmd=match std::env::var("PAOFU_CONTROL").unwrap().as_str(){"next"=>Transport::Next,"prev"=>Transport::Prev,"toggle"=>Transport::Toggle,_=>panic!("未知控制")};
         control(cmd,&source);
     }
 
     #[cfg(windows)]
     #[test]
-    #[ignore="真实客户端进度跳转验收；结束后恢复位置，需要 DAOZAI_CONTROL_SOURCE"]
+    #[ignore="真实客户端进度跳转验收；结束后恢复位置，需要 PAOFU_CONTROL_SOURCE"]
     fn live_client_seek(){
         use windows::Win32::{Foundation::POINT,UI::WindowsAndMessaging::{GetCursorPos,GetForegroundWindow}};
         let _apartment=init_winrt();
-        let source=std::env::var("DAOZAI_CONTROL_SOURCE").unwrap();
+        let source=std::env::var("PAOFU_CONTROL_SOURCE").unwrap();
         let manager=media_result(windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager::RequestAsync).unwrap();
         let snapshot=||{
             let mut rows=Vec::new();
@@ -1453,7 +1453,7 @@ mod tests {
     #[ignore="暂停指定客户端之外的系统媒体会话，隔离本机播放验收"]
     fn live_pause_other_clients(){
         let _apartment=init_winrt();
-        let keep=std::env::var("DAOZAI_CONTROL_SOURCE").unwrap();
+        let keep=std::env::var("PAOFU_CONTROL_SOURCE").unwrap();
         let manager=media_result(windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager::RequestAsync).unwrap();
         for session in manager.GetSessions().unwrap() {
             let source=session.SourceAppUserModelId().unwrap().to_string();
@@ -1485,7 +1485,7 @@ mod tests {
         println!("歌曲={} 歌手={} 曲长={} 进度={} 播放={} 读取耗时={:?}",first.title,first.artist,first.duration,first.position,first.playing,start.elapsed());
         assert!(first.source.eq_ignore_ascii_case("kugou") && first.is_music());
         assert!(first.duration>0.0 && first.position<=first.duration);
-        if let Ok(expected)=std::env::var("DAOZAI_EXPECT_DURATION"){assert!((first.duration-expected.parse::<f64>().unwrap()).abs()<1.0);}
+        if let Ok(expected)=std::env::var("PAOFU_EXPECT_DURATION"){assert!((first.duration-expected.parse::<f64>().unwrap()).abs()<1.0);}
         std::thread::sleep(Duration::from_secs(3));
         let next=query(&mut cache).unwrap();assert_eq!(next.title,first.title);
         assert_eq!(next.duration,first.duration);
@@ -1547,9 +1547,9 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    #[ignore="需要指定 DAOZAI_EXPECT_SOURCE，并在本机播放该客户端的音乐"]
+    #[ignore="需要指定 PAOFU_EXPECT_SOURCE，并在本机播放该客户端的音乐"]
     fn live_music_client_cover_lyrics_and_progress(){
-        let expected=std::env::var("DAOZAI_EXPECT_SOURCE").expect("请指定实测客户端").to_lowercase();
+        let expected=std::env::var("PAOFU_EXPECT_SOURCE").expect("请指定实测客户端").to_lowercase();
         let state=shared();let _poller=spawn_poller(state.clone(),eframe::egui::Context::default());
         let start=std::time::Instant::now();
         let first=loop{
@@ -1575,7 +1575,7 @@ mod tests {
     #[test]
     #[ignore="验证指定实际客户端的切歌、暂停和恢复，不依赖在线歌词服务"]
     fn live_playback_switch_pause_progress(){
-        let expected=std::env::var("DAOZAI_EXPECT_SOURCE").unwrap().to_lowercase();
+        let expected=std::env::var("PAOFU_EXPECT_SOURCE").unwrap().to_lowercase();
         let state=shared();let _poller=spawn_poller(state.clone(),eframe::egui::Context::default());
         let wait=|predicate:&dyn Fn(&NowPlaying)->bool|{
             let start=std::time::Instant::now();loop {
@@ -1613,7 +1613,7 @@ mod tests {
         println!("当前媒体：{} / {}；来源 {}；类型 {:?}",np.title,np.artist,np.source,np.kind());
         let cover=np.artwork.expect("当前媒体会话没有可读封面");
         println!("系统封面尺寸：{}×{}",cover.size[0],cover.size[1]);
-        if let Ok(path)=std::env::var("DAOZAI_ARTWORK_PROBE") {
+        if let Ok(path)=std::env::var("PAOFU_ARTWORK_PROBE") {
             let pixels:Vec<u8>=cover.pixels.iter().flat_map(|p|p.to_srgba_unmultiplied()).collect();
             image::save_buffer(path,&pixels,cover.size[0] as u32,cover.size[1] as u32,image::ColorType::Rgba8).unwrap();
         }

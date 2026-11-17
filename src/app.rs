@@ -1,5 +1,5 @@
 //! 灵动岛主体：状态、悬停形变、切页、顶栏与公共层。与平台无关——
-//! Windows 外壳（`main.rs`）和无窗口录制器（`daozai-record`）共用同一份代码。
+//! Windows 外壳（`main.rs`）和无窗口录制器（`paofu-record`）共用同一份代码。
 //!
 //! 时间一律来自 `Env::t`（秒），不直接读系统时钟，所以录屏可逐帧复现。
 
@@ -1336,12 +1336,12 @@ impl App {
 
     /// 录制/截图用的邮件样例（只在 `record` feature 下编译）。
     ///
-    /// `DAOZAI_MAIL_DEMO=1|code` 面板带验证码，`=list` 只列邮件，`=fail` 用假授权码走一次
+    /// `PAOFU_MAIL_DEMO=1|code` 面板带验证码，`=list` 只列邮件，`=fail` 用假授权码走一次
     /// 「测试连接失败」，方便在没有真实邮箱时验收失败路径。
     #[cfg(feature = "record")]
     pub fn mail_demo(&mut self) {
         use mail::{Account, Item, Provider, Status};
-        let mode = std::env::var("DAOZAI_MAIL_DEMO").unwrap_or_default();
+        let mode = std::env::var("PAOFU_MAIL_DEMO").unwrap_or_default();
         self.settings_tab = 7;
         if mode == "fail" {
             self.mail.form.provider = Provider::Qq;
@@ -1425,11 +1425,11 @@ impl App {
 
     /// 录制/截图用的日程样例（只在 `record` feature 下编译）。
     ///
-    /// `DAOZAI_CAL_DEMO=paste|fail|connected|alert`。
+    /// `PAOFU_CAL_DEMO=paste|fail|connected|alert`。
     #[cfg(feature = "record")]
     pub fn calendar_demo(&mut self) {
         use calendar::Provider;
-        let mode = std::env::var("DAOZAI_CAL_DEMO").unwrap_or_default();
+        let mode = std::env::var("PAOFU_CAL_DEMO").unwrap_or_default();
         self.calendar.form.provider = Provider::Feishu;
         self.calendar.form.username = "demo***@feishu.example".into();
         self.settings_tab = 8;

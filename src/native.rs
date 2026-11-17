@@ -24,7 +24,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState,SetFocus,VK_L
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-const SUBCLASS_ID: usize = 0x4E55_5341; // "DAOZAI"
+const SUBCLASS_ID: usize = 0x4E55_5341; // "PAOFU"
 #[allow(dead_code)]
 const WS_EX_NOREDIRECTIONBITMAP: isize = 0x0020_0000;
 
@@ -80,7 +80,7 @@ impl DragCapture {
 fn watch_drag(hwnd:HWND,ctx:eframe::egui::Context){
     let raw=hwnd.0 as isize;
     let mut was_down=false;
-    let _=std::thread::Builder::new().name("daozai-drag-watch".into()).spawn(move||loop{
+    let _=std::thread::Builder::new().name("paofu-drag-watch".into()).spawn(move||loop{
         std::thread::sleep(std::time::Duration::from_millis(80));
         unsafe {
             let hwnd=HWND(raw as *mut _);
@@ -369,7 +369,7 @@ enum Layering {
 /// 本机验证分层显示的开关：None 不启用；Some(false) 按需要分层的显卡处理；Some(true) 另外假装读回的画面没有透明通道。
 fn outline_test()->Option<bool> {
     static VALUE:std::sync::OnceLock<Option<bool>>=std::sync::OnceLock::new();
-    *VALUE.get_or_init(||match std::env::var("DAOZAI_OUTLINE_TEST").ok()?.trim().to_ascii_lowercase().as_str() {
+    *VALUE.get_or_init(||match std::env::var("PAOFU_OUTLINE_TEST").ok()?.trim().to_ascii_lowercase().as_str() {
         "alpha"=>Some(false),
         "opaque"=>Some(true),
         _=>None,
@@ -703,7 +703,7 @@ impl Window {
             use eframe::glow::HasContext;
             unsafe{(gl.get_parameter_string(eframe::glow::VENDOR),gl.get_parameter_string(eframe::glow::RENDERER))}
         }).unwrap_or_default();
-        // 本机验证用：DAOZAI_OUTLINE_TEST=alpha 按 AMD 等路径处理；=opaque 再假装读回的画面没有透明通道。
+        // 本机验证用：PAOFU_OUTLINE_TEST=alpha 按 AMD 等路径处理；=opaque 再假装读回的画面没有透明通道。
         let opaque_surface=surface_needs_outline_clip(backend,&vendor,&renderer) || outline_test().is_some();
         if opaque_surface{glass_diagnostic(&format!("渲染兼容：{vendor} {renderer} {backend:?}，不直接信任系统透明合成，首帧前先按轮廓裁剪"));}
         watch_drag(hwnd,cc.egui_ctx.clone());

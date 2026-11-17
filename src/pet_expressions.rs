@@ -99,7 +99,7 @@ impl Expressions {
             if let Some(palette)=palette {for pixel in &mut image.pixels {if pixel.a()>0 {*pixel=crate::skin_paint::map_color(*pixel,&palette);}}}
             if let Some((previous,previous_palette,texture))=&mut self.sheet {*previous=expression;*previous_palette=palette;texture.set(image,egui::TextureOptions::LINEAR);}
             else {
-                let texture=c.ui.ctx().load_texture("daozai-expressions",image,egui::TextureOptions::LINEAR);
+                let texture=c.ui.ctx().load_texture("paofu-expressions",image,egui::TextureOptions::LINEAR);
                 crate::skin_paint::mark_colored(texture.id());self.sheet=Some((expression,palette,texture));
             }
         }

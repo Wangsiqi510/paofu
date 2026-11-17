@@ -12,7 +12,7 @@ use std::collections::HashMap;
 #[path="mail_fetch.rs"]
 pub(crate) mod fetch;
 
-pub const SERVICE: &str = "Daozai.Mail";
+pub const SERVICE: &str = "Paofu.Mail";
 pub const MICROSOFT_UNSUPPORTED: &str = "Outlook、Hotmail、Live 和 Microsoft 365 云邮箱需要 OAuth 授权，泡浮暂不支持密码直连。";
 
 // ---------------------------------------------------------------- 邮箱类型
@@ -743,7 +743,7 @@ pub(crate) mod net {
         // 2) 网易系：LOGIN 之前先发 ID（RFC 2971）
         if account.provider.needs_id() {
             stream
-                .write_all(b"A0001 ID (\"name\" \"daozai\" \"version\" \"0.5.5\" \"vendor\" \"daozai\")\r\n")
+                .write_all(b"A0001 ID (\"name\" \"paofu\" \"version\" \"0.5.5\" \"vendor\" \"paofu\")\r\n")
                 .map_err(|e| format!("发送 ID 失败：{e}"))?;
             let _ = stream.flush();
             let mut ok = false;
@@ -812,7 +812,7 @@ mod service {
             let (ev_tx, ev_rx) = channel();
             let (cmd_tx, cmd_rx) = channel();
             let _ = std::thread::Builder::new()
-                .name("daozai-mail".into())
+                .name("paofu-mail".into())
                 .spawn(move || supervisor(cmd_rx, ev_tx));
             let (manage,done)=crate::mail_manage::start();
             Self { cmd: cmd_tx, ev: ev_rx,manage,done }
@@ -863,7 +863,7 @@ mod service {
                         let flag = stop.clone();
                         let ev = ev.clone();
                         let iv = interval.clone();
-                        let name = "daozai-mail".to_string();
+                        let name = "paofu-mail".to_string();
                         let running_account=account.clone();
                         if let Ok(handle) = std::thread::Builder::new()
                             .name(name)
@@ -876,7 +876,7 @@ mod service {
                 Cmd::Test(account, password) => {
                     let ev = ev.clone();
                     let _ = std::thread::Builder::new()
-                        .name("daozai-mail-test".into())
+                        .name("paofu-mail-test".into())
                         .spawn(move || {
                             let result = net::probe(&account, &password);
                             let _ = ev.send(Event::Test {
@@ -1383,8 +1383,8 @@ mod service {
         let (tx,rx)=std::sync::mpsc::channel();recent(&mut session,&account,&tx).unwrap();
         let items=rx.try_iter().filter_map(|ev|if let Event::Mail{item,..}=ev{Some(item)}else{None}).collect::<Vec<_>>();
         let invite=items.iter().find(|m|m.subject=="【泡浮测试】邮件日程邀请：收件箱合并验证").expect("测试邀请未到达");
-        assert_eq!(invite.meeting.as_ref().unwrap().uid,"daozai-mail-test-20261103-1500");
-        let plain=items.iter().find(|m|m.subject=="DAOZAI-DATE-TEST-20261103").expect("普通日期邮件未到达");
+        assert_eq!(invite.meeting.as_ref().unwrap().uid,"paofu-mail-test-20261103-1500");
+        let plain=items.iter().find(|m|m.subject=="PAOFU-DATE-TEST-20261103").expect("普通日期邮件未到达");
         assert!(plain.meeting.is_none());session.logout().unwrap();
         println!("invitation_recognized=true plain_date_rejected=true");
     }
