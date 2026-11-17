@@ -1,0 +1,32 @@
+name: Import source
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[import-source]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download source
+        run: |
+          curl -fL --retry 3 -o /tmp/paofu-source.zip https://aka.doubaocdn.com/s/yE5JHxURNb
+      - name: Unzip source
+        run: |
+          rm -rf /tmp/paofu-source
+          mkdir -p /tmp/paofu-source
+          unzip -q /tmp/paofu-source.zip -d /tmp/paofu-source
+      - name: Commit source
+        run: |
+          cp -a /tmp/paofu-source/. ./
+          git config user.name "Wangsiqi510"
+          git config user.email "1831900786@qq.com"
+          git add -A
+          git commit -m "导入泡浮源码" || echo "no changes"
+          git push
