@@ -1,4 +1,4 @@
-﻿﻿//! 持久化与状态模型。
+//! 持久化与状态模型。
 //!
 //! 文件布局使用独立的 `%APPDATA%\Paofu`：
 //!   %APPDATA%\Paofu\settings.txt   -> pet=0/1, minimal=0/1
