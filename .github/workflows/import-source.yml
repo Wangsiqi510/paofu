@@ -25,12 +25,17 @@ jobs:
           mkdir -p /tmp/paofu-source
           unzip -q /tmp/paofu-source.zip -d /tmp/paofu-source
           rm -rf /tmp/paofu-source/.github/workflows
+      - name: Fix repository references
+        run: |
+          set -x
+          sed -i 's#Renly1994/xiaotang-daozai#Wangsiqi510/paofu#g' README.md Cargo.toml
       - name: Commit source
         run: |
           set -x
           cp -a /tmp/paofu-source/. ./
+          sed -i 's#Renly1994/xiaotang-daozai#Wangsiqi510/paofu#g' README.md Cargo.toml
           git config user.name "Wangsiqi510"
           git config user.email "1831900786@qq.com"
           git add -A
-          git commit -m "导入泡浮源码" || echo "no changes"
+          git commit -m "导入泡浮源码并改成自己的仓库" || echo "no changes"
           git push
