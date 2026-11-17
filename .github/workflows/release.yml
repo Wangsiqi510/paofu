@@ -59,6 +59,9 @@ jobs:
       - name: Build Windows exe
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+          CC_x86_64_pc_windows_gnu: x86_64-w64-mingw32-gcc
+          AR_x86_64_pc_windows_gnu: x86_64-w64-mingw32-ar
+          CXX_x86_64_pc_windows_gnu: x86_64-w64-mingw32-g++
         run: cargo build --locked --release --target x86_64-pc-windows-gnu --bin paofu
 
       - name: Package zip
