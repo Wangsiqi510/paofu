@@ -1,0 +1,40 @@
+name: Import Paofu 0.7.0 source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download source snapshot
+        run: |
+          set -e
+          curl -L --fail --retry 3 -o /tmp/paofu-source.tar.gz "https://aka.doubaocdn.com/s/6vzK2ad7MP"
+          mkdir -p /tmp/paofu-source
+          tar -xzf /tmp/paofu-source.tar.gz -C /tmp/paofu-source
+
+      - name: Replace source tree, preserve workflows
+        run: |
+          set -e
+          rsync -a --delete --exclude='.git' --exclude='.github/workflows' /tmp/paofu-source/ ./
+
+      - name: Commit and push
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Import Paofu 0.7.0 source"
+            git push origin HEAD:main
+          fi
