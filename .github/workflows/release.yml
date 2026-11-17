@@ -1,0 +1,90 @@
+name: Release paofu
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号，例如 0.6.66'
+        required: true
+      publish:
+        description: 'true=创建 Release；false=只编译并保留构建产物'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            TAG="v${VERSION}"
+            PUBLISH="${{ inputs.publish }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+            PUBLISH=true
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "版本号格式不对：$VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+
+      - name: Check Cargo version
+        run: |
+          CARGO_VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+          test "$CARGO_VERSION" = "${{ steps.version.outputs.version }}" || {
+            echo "Cargo.toml 版本是 $CARGO_VERSION，tag 是 ${{ steps.version.outputs.version }}"
+            exit 1
+          }
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 zip
+          rustup target add x86_64-pc-windows-gnu
+
+      - name: Build Windows exe
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+        run: cargo build --locked --release --target x86_64-pc-windows-gnu --bin daozai
+
+      - name: Package zip
+        id: package
+        run: |
+          set -e
+          VERSION="${{ steps.version.outputs.version }}"
+          FOLDER="Daozai-v${VERSION}-windows-x64"
+          mkdir -p "package/${FOLDER}"
+          cp target/x86_64-pc-windows-gnu/release/daozai.exe "package/${FOLDER}/泡浮.exe"
+          cp LICENSE THIRD_PARTY_NOTICES.txt "package/${FOLDER}/"
+          (cd package && zip -qr "../${FOLDER}.zip" "${FOLDER}")
+          echo "zip=${FOLDER}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paofu-windows-x64
+          path: ${{ steps.package.outputs.zip }}
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" "${{ steps.package.outputs.zip }}" \
+            --title "泡浮 ${{ steps.version.outputs.tag }}" \
+            --generate-notes
