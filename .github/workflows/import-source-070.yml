@@ -20,7 +20,7 @@ jobs:
       - name: Download source snapshot
         run: |
           set -e
-          curl -L --fail --retry 3 -o /tmp/paofu-source.tar.gz "https://aka.doubaocdn.com/s/6vzK2ad7MP"
+          curl -L --fail --retry 3 -o /tmp/paofu-source.tar.gz "https://aka.doubaocdn.com/s/yvob7ZFmRM"
           mkdir -p /tmp/paofu-source
           tar -xzf /tmp/paofu-source.tar.gz -C /tmp/paofu-source
 
