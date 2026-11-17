@@ -17,7 +17,7 @@ jobs:
       - name: Download source
         run: |
           set -x
-          curl -fL --retry 3 -o /tmp/paofu-source.zip https://aka.doubaocdn.com/s/mWjgqHPJuY
+          curl -fL --connect-timeout 20 --max-time 120 --retry 2 -o /tmp/paofu-source.zip https://aka.doubaocdn.com/s/K7d4wQVMC5
       - name: Unzip source
         run: |
           set -x
