@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号，例如 0.6.66'
+        description: '版本号，例如 0.7.0'
         required: true
       publish:
         description: 'true=创建 Release；false=只编译并保留构建产物'
@@ -59,17 +59,17 @@ jobs:
       - name: Build Windows exe
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
-        run: cargo build --locked --release --target x86_64-pc-windows-gnu --bin daozai
+        run: cargo build --locked --release --target x86_64-pc-windows-gnu --bin paofu
 
       - name: Package zip
         id: package
         run: |
           set -e
           VERSION="${{ steps.version.outputs.version }}"
-          FOLDER="Daozai-v${VERSION}-windows-x64"
+          FOLDER="Paofu-v${VERSION}-windows-x64"
           mkdir -p "package/${FOLDER}"
-          cp target/x86_64-pc-windows-gnu/release/daozai.exe "package/${FOLDER}/泡浮.exe"
-          cp LICENSE THIRD_PARTY_NOTICES.txt "package/${FOLDER}/"
+          cp target/x86_64-pc-windows-gnu/release/paofu.exe "package/${FOLDER}/泡浮.exe"
+          cp LICENSE THIRD_PARTY_NOTICES.txt NOTICE.md "package/${FOLDER}/"
           (cd package && zip -qr "../${FOLDER}.zip" "${FOLDER}")
           echo "zip=${FOLDER}.zip" >> "$GITHUB_OUTPUT"
 
