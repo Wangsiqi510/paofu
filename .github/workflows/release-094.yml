@@ -1,0 +1,35 @@
+name: Publish Paofu 0.9.4
+
+on:
+  push:
+    paths:
+      - '.github/workflows/release-094.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified package
+        run: |
+          set -e
+          curl -L --fail --retry 3 -o Paofu-v0.9.4-windows-x64.zip "https://aka.doubaocdn.com/s/K2f3fqjKLF"
+          cp Paofu-v0.9.4-windows-x64.zip Daozai-v0.9.4-windows-x64.zip
+          echo "081235d6895822b172297d543323b5f8b5f06fb6276faef885ee01563803f896  Paofu-v0.9.4-windows-x64.zip" | sha256sum -c -
+          ls -lh Paofu-v0.9.4-windows-x64.zip
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -e
+          NOTES="0.9.4：修复启动卡顿和“降帧假优化”。主循环不再在 UI 线程 sleep 限帧；空闲约 3fps，空闲 CPU 单核约 14%→4–6%，GPU 约 4.4%→0.1% 以下，启动约 0.8s→0.5–0.6s，内存约 193MB→90MB。另修复中文引号包裹的网页链接无法加入置物架。建议保持“兼容渲染”关闭（默认关闭），除非出现黑框再打开。"
+          if gh release view v0.9.4 >/dev/null 2>&1; then
+            gh release upload v0.9.4 Paofu-v0.9.4-windows-x64.zip Daozai-v0.9.4-windows-x64.zip --clobber
+            gh release edit v0.9.4 --title "泡浮 v0.9.4" --notes "$NOTES" --latest
+          else
+            gh release create v0.9.4 Paofu-v0.9.4-windows-x64.zip Daozai-v0.9.4-windows-x64.zip --title "泡浮 v0.9.4" --latest --notes "$NOTES"
+          fi
