@@ -1,0 +1,39 @@
+name: Publish Paofu 0.8.5
+
+on:
+  push:
+    paths:
+      - '.github/workflows/release-085.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download package
+        run: |
+          set -e
+          curl -L --fail --retry 3 -o Paofu-v0.8.5-windows-x64.zip "https://aka.doubaocdn.com/s/b1bSbezgIk"
+          cp Paofu-v0.8.5-windows-x64.zip Daozai-v0.8.5-windows-x64.zip
+          echo "dc450adc07b2a36767355c1a8840cbfa755a869dcf9cff90365ad7c6a4303a8c  Paofu-v0.8.5-windows-x64.zip" | sha256sum -c -
+          ls -lh Paofu-v0.8.5-windows-x64.zip
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create v0.8.5 \
+            Paofu-v0.8.5-windows-x64.zip \
+            Daozai-v0.8.5-windows-x64.zip \
+            --title "泡浮 v0.8.5" \
+            --latest \
+            --notes "泡浮 0.8.5
+
+- 左右翻页方向箭头随竖热区自适应：高度、开口联动
+- 半透明柔光 + 圆角质感
+- 底部页码保留
+- 空闲仍保持低占用"
